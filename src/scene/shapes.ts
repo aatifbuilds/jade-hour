@@ -12,9 +12,9 @@ export const LIQUID_MAX_Y = 2.0;
 /** One continuous outline of the glass's solid: up the outside, over the rim, down the inside to the floor. */
 const GLASS_CORNERS: Corner[] = [
   { x: 0, y: 0 },
-  { x: 0.43, y: 0, r: 0.05 },
-  { x: 0.5, y: GLASS_HEIGHT, r: 0.015 },
-  { x: WALL_TOP_R, y: GLASS_HEIGHT, r: 0.015 },
+  { x: 0.42, y: 0, r: 0.05 },
+  { x: 0.487, y: GLASS_HEIGHT, r: 0.012 },
+  { x: WALL_TOP_R, y: GLASS_HEIGHT, r: 0.012 },
   { x: WALL_BOTTOM_R, y: CAVITY_FLOOR, r: 0.06 },
   { x: 0, y: CAVITY_FLOOR },
 ];

@@ -1,0 +1,18 @@
+/* Design tokens. Direction: split stage, olive on bone (docs/direction-sheet.md). One ground, one ink; the drink supplies the colour. */
+:root {
+  --bg: #ecebe7;
+  --surface: #e1dfd9;
+  --ink: #38450f;
+  --muted: #5d683a;
+  --accent: #38450f;
+  --accent-ink: #ecebe7;
+  --matcha: #8fae4a; /* graphic use only (drink, the active-step dot): 1.9:1 on the surface, never text */
+  --display: "Young Serif", Georgia, serif;
+  --text: "Source Serif 4 Variable", Georgia, serif;
+  --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --step-body: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
+  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-head: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --step-name: clamp(4rem, 12vw, 9rem);
+  --margin: clamp(20px, 4vw, 56px);
+}

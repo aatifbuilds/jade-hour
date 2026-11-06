@@ -4,10 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>Matcha page (work in progress)</title>
+    <meta name="description" content="jade hour: a fictional iced matcha latte, built in front of you as you scroll. A design practice build." />
+    <title>jade hour</title>
+    <link rel="icon" href="data:," />
   </head>
   <body>
-    <div id="app"></div>
+    <div class="page">
+      <div class="stage"><canvas id="stage" role="img" aria-label="A tall glass being filled, step by step, to make an iced matcha latte"></canvas></div>
+      <main class="col">
+        <nav class="nav" aria-label="Main">
+          <a href="#glass">The drink</a><a href="#ice">Steps</a><a href="#final">Letter</a><a class="nav__action" href="#final">Order</a>
+        </nav>
+        <div class="story" id="story"></div>
+        <div class="tail"></div>
+      </main>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
