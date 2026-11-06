@@ -7,28 +7,33 @@
     },
     {
       "id": "ice",
-      "scroll": 0.08,
-      "video": 0.0532
+      "scroll": 0.07,
+      "video": 0.0475
     },
     {
       "id": "milk",
-      "scroll": 0.26,
-      "video": 0.235
+      "scroll": 0.22,
+      "video": 0.2099
     },
     {
       "id": "matcha",
-      "scroll": 0.42,
-      "video": 0.3592
+      "scroll": 0.36,
+      "video": 0.3208
     },
     {
       "id": "blend",
-      "scroll": 0.64,
-      "video": 0.6386
+      "scroll": 0.54,
+      "video": 0.5703
+    },
+    {
+      "id": "foam",
+      "scroll": 0.78,
+      "video": 0.8277
     },
     {
       "id": "final",
-      "scroll": 0.88,
-      "video": 0.9047
+      "scroll": 0.92,
+      "video": 0.9426
     }
   ]
 }
