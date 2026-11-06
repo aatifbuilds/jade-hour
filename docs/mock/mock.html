@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock: direction check (not the real page)</title>
+<link rel="stylesheet" href="/node_modules/@fontsource/young-serif/400.css" />
+<link rel="stylesheet" href="/node_modules/@fontsource-variable/source-serif-4/index.css" />
+<style>
+  :root { --bg:#ecebe7; --surface:#e1dfd9; --ink:#38450f; --muted:#5d683a; --field:#38450f; --field-ink:#ecebe7; --matcha:#8fae4a; --milk:#f4f1e8; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 400 clamp(1.125rem, 1.05rem + .3vw, 1.3125rem)/1.55 "Source Serif 4 Variable", serif; }
+  .page { display: grid; grid-template-columns: 47% 53%; min-height: 100svh; }
+  .stage { position: sticky; top: 0; height: 100svh; padding: 20px; }
+  .stage div { height: 100%; background: var(--surface); display: grid; place-items: center; }
+  .col { padding: 32px 56px 120px 56px; }
+  nav { display: flex; gap: 28px; justify-content: flex-end; font-size: 15px; }
+  nav a { color: var(--ink); text-decoration: none; } nav a:last-child { background: var(--ink); color: var(--bg); padding: 10px 18px; }
+  h1 { font: 400 clamp(4rem, 12vw, 9rem)/.9 "Young Serif", serif; letter-spacing: -.04em; margin: 22vh 0 28px -.04em; }
+  .lead { font-size: clamp(1.25rem, 1.1rem + .7vw, 1.625rem); max-width: 26ch; }
+  h2 { font: 400 clamp(2rem, 1.3rem + 3.2vw, 4rem)/.95 "Young Serif", serif; letter-spacing: -.02em; margin: 22vh 0 24px; max-width: 12ch; }
+  p { max-width: 46ch; }
+  ol { list-style: none; padding: 0; margin: 40px 0 0; font: 400 clamp(1.6rem, 1.2rem + 1.6vw, 2.6rem)/1.25 "Young Serif", serif; }
+  ol li { color: var(--muted); } ol li.on { color: var(--ink); } ol li.on::before { content: ""; display: inline-block; width: .5em; height: .5em; background: var(--matcha); border-radius: 50%; margin-right: .4em; }
+  .note { position: absolute; left: 28px; bottom: 28px; font-size: 14px; color: var(--muted); max-width: 30ch; }
+  @media (max-width: 700px) { .page { display: block; } .stage { height: 58svh; } .col { padding: 20px 20px 80px; } h1 { margin-top: 24px; } h2 { margin-top: 64px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="stage"><div>
+    <svg viewBox="0 0 200 420" width="46%" role="img" aria-label="A tall glass of iced matcha latte (drawing standing in for the live 3D glass)">
+      <path d="M40 20 L160 20 L150 395 Q148 408 135 408 L65 408 Q52 408 50 395 Z" fill="#f7f6f2" stroke="#38450f" stroke-width="2" opacity=".95"/>
+      <path d="M46 150 L154 150 L150 395 Q148 408 135 408 L65 408 Q52 408 50 395 Z" fill="#f4f1e8"/>
+      <path d="M48 240 Q100 215 152 240 L150 395 Q148 408 135 408 L65 408 Q52 408 50 395 Z" fill="#8fae4a"/>
+      <path d="M48 240 Q80 262 100 246 T152 250 L152 262 Q120 280 100 266 T48 262 Z" fill="#f4f1e8" opacity=".7"/>
+      <ellipse cx="100" cy="150" rx="54" ry="9" fill="#fbfaf6"/>
+      <rect x="70" y="70" width="34" height="34" rx="8" fill="#ffffff" opacity=".6" stroke="#38450f" stroke-opacity=".3"/>
+      <rect x="104" y="100" width="30" height="30" rx="8" fill="#ffffff" opacity=".6" stroke="#38450f" stroke-opacity=".3"/>
+    </svg>
+  </div></div>
+  <main class="col">
+    <nav><a href="#">The drink</a><a href="#">Steps</a><a href="#">Ingredients</a><a href="#">Letter</a><a href="#">Order</a></nav>
+    <h1>jade hour</h1>
+    <p class="lead">An iced matcha latte, built in front of you, one pour at a time.</p>
+    <h2>Watch it come together.</h2>
+    <p>Scroll and the glass fills: ice first, then cold milk, then the matcha poured slowly so the green drifts through the white. A whisk of the glass, a cap of foam and a twist of yuzu peel.</p>
+    <ol aria-label="The steps">
+      <li>Ice</li><li>Milk</li><li class="on">Matcha</li><li>Blend</li><li>Foam</li><li>Yuzu</li><li>Final pour</li>
+    </ol>
+  </main>
+</div>
+<p class="note" style="position:fixed">Mock only: the drawing stands in for the live 3D glass.</p>
+</body>
+</html>
