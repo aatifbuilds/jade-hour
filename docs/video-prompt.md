@@ -8,10 +8,11 @@ One smooth, **continuous take** (no cuts, no camera movement) of an iced matcha 
 ## Settings
 - **Portrait 9:16**, the highest resolution available (1080p or better). **No audio** needed.
 - Every clip is meant to look like the same shoot: same glass, same light, same camera, same backdrop.
+- **The ribbed glass is the hardest detail to keep identical between clips** (the number or spacing of the ribs can drift). If it does, make the ribs fewer and bolder ("about 12 wide ribs"), or use a plain glass with only the flared rim and heavy base. Consistency matters more than detail.
 - Keep the glass in the **middle of the frame**, about 60% of the frame's height, with empty space above it for the pours. The page crops the video to 4:5 (it trims about 15% of the height at the top and bottom), so nothing important may touch the top or bottom edge.
 
 ## The master description (paste this at the start of EVERY clip prompt)
-> A locked-off, perfectly static camera, slightly above eye level, looking at a tall straight-sided clear glass tumbler with a thick solid glass base, standing in the centre of the frame on a seamless pale warm-grey surface and backdrop (soft stone grey, almost no gradient). Soft diffused window light from the left, a thin cool rim light on the right edge of the glass. Realistic product photography, macro-quality detail, sharp focus on the glass, true-to-life liquids and ice, natural reflections. No people, no hands, no text, no logos, no other objects, no camera movement, no zoom, no cuts.
+> A locked-off, perfectly static camera, slightly above eye level, looking at a tall fluted glass tumbler of the kind specialist matcha cafés use: fine, evenly spaced vertical ribs running the full height of the glass (about 24 ribs around it), a slightly flared rim, and a thick heavy solid glass base. The ribs catch the window light as soft vertical lines, and whatever is inside shows through them gently distorted. The glass stands in the centre of the frame on a seamless pale warm-grey surface and backdrop (soft stone grey, almost no gradient). Soft diffused window light from the left, a thin cool rim light on the right edge of the glass. Realistic product photography, macro-quality detail, sharp focus on the glass, true-to-life liquids and ice, natural reflections. No people, no hands, no text, no logos, no other objects, no camera movement, no zoom, no cuts.
 
 ## The five clips (add each one after the master description)
 
@@ -34,6 +35,7 @@ One smooth, **continuous take** (no cuts, no camera movement) of an iced matcha 
 > people, hands, face, text, letters, logo, watermark, extra glasses, straw, camera movement, zoom, pan, shaky camera, lens flare, bokeh background, dramatic lighting, colour grading, cartoon, illustration, 3D render, plastic, blurry, distorted glass, floating objects, cut, transition
 
 ## Tips
+- **Fix the glass first.** If Flow can make a still image, generate one of the empty fluted glass on the backdrop until you love it, and use that image as the starting frame of Clip 1. Every later clip then inherits the exact same glass.
 - **Chain the clips** so the glass does not change shape: for clips 2 to 5, start from the **last frame of the previous clip** ("frames to video" / "start from an image") and keep the master description exactly the same.
 - Make several takes of each clip and pick the cleanest. Throw away any take where the glass shape, size or position changes, the liquid does something impossible (flows uphill, appears from nowhere), the camera moves, or something flickers.
 - If a pour or stir looks wrong, regenerate just that clip; clips before and after it still join.
