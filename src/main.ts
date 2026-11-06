@@ -64,7 +64,7 @@ function makeDrawer(): Drawer {
     const phone = window.innerWidth <= 700;
     // the whole page takes the video's backdrop colour: no box, no seam (on a phone, the colour along the picture's bottom edge, which the text area continues)
     document.documentElement.style.setProperty("--bg", phone && seqMeta.bgBottom ? seqMeta.bgBottom : seqMeta.bg);
-    const seq = createSequence(canvas, seqMeta, base, phone ? 0.9 : 0); // on a phone the glass never gets smaller than a screen's worth
+    const seq = createSequence(canvas, seqMeta, base, phone ? 0.9 : 0, phone ? 0.05 : 0); // on a phone the glass never gets smaller than a screen's worth
     return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p) => seq.render(storyVideoProgress(p, story), storyView(p, story)) };
   }
   const stage = createStage(canvas);

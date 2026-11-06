@@ -172,3 +172,41 @@ describe("cameraPlacement", () => {
     expect(far).toEqual(limit);
   });
 });
+
+describe("top anchor", () => {
+  it("holds the top edge of the shot at the asked point of the frame, so zooming in only loses the bottom", () => {
+    for (const z of [1, 1.2, 1.4, 1.8]) {
+      const p = cameraPlacement(974, 678, 1440, 900, z, 0.5, 0.9, Infinity, 0.05);
+      expect(p.sy).toBeCloseTo(0.05 * 678, 6);
+    }
+    const a = cameraPlacement(974, 678, 1440, 900, 1.2, 0.5, 0.5, Infinity, 0.05);
+    const b = cameraPlacement(974, 678, 1440, 900, 1.6, 0.5, 0.5, Infinity, 0.05);
+    expect(a.sy).toBeCloseTo(b.sy, 9);
+    expect(b.sy + b.sh).toBeLessThan(a.sy + a.sh); // the more it zooms, the less of the bottom it shows
+  });
+
+  it("never shows outside the frame, whatever the anchor", () => {
+    for (const top of [0, 0.05, 0.5, 0.95, 1]) {
+      for (const z of [1, 1.4, 2.5]) {
+        const p = cameraPlacement(974, 678, 1440, 900, z, 0.5, 0.5, Infinity, top);
+        expect(p.sy).toBeGreaterThanOrEqual(-1e-9);
+        expect(p.sy + p.sh).toBeLessThanOrEqual(678 + 1e-9);
+      }
+    }
+  });
+
+  it("has no effect when the shot already shows the whole height", () => {
+    const withTop = cameraPlacement(974, 678, 1440, 900, 0.7, 0.5, 0.5, Infinity, 0.3);
+    const without = cameraPlacement(974, 678, 1440, 900, 0.7, 0.5, 0.5);
+    expect(withTop).toEqual(without);
+  });
+
+  it("is carried through the story and validated", () => {
+    const st = { chapters: [{ id: "a", scroll: 0, video: 0, view: { zoom: 1, x: 0.5, y: 0.5 } }, { id: "b", scroll: 0.5, video: 0.5, view: { zoom: 1.3, x: 0.5, y: 0.5, top: 0.04 } }] };
+    expect(storyView(0.5, st).top).toBeCloseTo(0.04, 9);
+    expect(storyView(0.25, st).top).toBeGreaterThan(0);
+    expect(storyView(0.25, defaultStory()).top).toBeUndefined();
+    expect(parseStory(st)?.chapters[1].view?.top).toBe(0.04);
+    expect(parseStory({ chapters: [st.chapters[0], { ...st.chapters[1], view: { zoom: 1.3, x: 0.5, y: 0.5, top: 2 } }] })).toBeNull();
+  });
+});

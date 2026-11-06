@@ -51,7 +51,7 @@ export async function loadSequenceMeta(base: string): Promise<SequenceMeta | nul
  * the rest follow outwards; between two frames it cross-fades, so a modest frame count still scrubs smoothly; while a frame is
  * still loading it shows the nearest one that has arrived, so there is never a blank stage.
  */
-export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, base: string, minZoom = 0): Sequence {
+export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, base: string, minZoom = 0, topShift = 0): Sequence {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas is not available");
   const variant = window.innerWidth <= 700 ? meta.phone : meta.desktop;
@@ -134,8 +134,11 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
     ctx.drawImage(swatch, frameLeft - frameW / 2, frameTop - frameH / 2, frameW * 2, frameH * 2);
   };
 
+  // `topShift` moves the shot's top edge up the frame, which sits the glass lower on screen (a phone has a logo row to clear)
+  const topOf = (view: View): number | undefined => (view.top === undefined ? undefined : Math.max(0, view.top - topShift));
+
   const draw = (bmp: ImageBitmap, alpha: number, view: View): void => {
-    const p = cameraPlacement(bmp.width, bmp.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)));
+    const p = cameraPlacement(bmp.width, bmp.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)), topOf(view));
     ctx.globalAlpha = alpha;
     ctx.drawImage(bmp, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.dw, p.dh);
   };
@@ -155,13 +158,13 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
       const b = state[f.b] === LOADED ? f.b : a;
       if (a < 0) return; // nothing has arrived yet: the stage shows its background colour
       const t = b === a ? 0 : Math.round(f.t * 64) / 64; // fine steps are enough, and let us skip redrawing identical pictures
-      const key = `${a}|${b}|${t}|${view.zoom.toFixed(3)}|${view.x.toFixed(3)}|${view.y.toFixed(3)}|${canvas.width}x${canvas.height}`;
+      const key = `${a}|${b}|${t}|${view.zoom.toFixed(3)}|${view.x.toFixed(3)}|${view.y.toFixed(3)}|${(view.top ?? -1).toFixed(3)}|${canvas.width}x${canvas.height}`;
       if (!dirty && key === lastKey) return;
       dirty = false;
       lastKey = key;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const bmpA = bitmaps[a] as ImageBitmap;
-      const pl = cameraPlacement(bmpA.width, bmpA.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)));
+      const pl = cameraPlacement(bmpA.width, bmpA.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)), topOf(view));
       if (pl.dw < canvas.width - 0.5 || pl.dh < canvas.height - 0.5) {
         const sc = pl.dw / pl.sw; // screen pixels per picture pixel
         paintBackdrop(pl.dx - pl.sx * sc, pl.dy - pl.sy * sc, bmpA.width * sc, bmpA.height * sc);

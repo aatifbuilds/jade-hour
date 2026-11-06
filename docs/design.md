@@ -22,3 +22,6 @@
 
 ## Camera views after the opening, revised (7 Nov 2026)
 **Owner:** the opening frame is perfect (unchanged: zoom 0.7, centred); from Ice onward the zoom was too much and the rim was not visible. **Cause:** views of 1.12-1.4 with the focus below centre cropped the top of the glass. **Fix (only `public/frames/story.json`):** ice 0.85, milk 0.88, matcha 0.92, blend 0.9, all centred, so the whole glass with its rim and base stays in view and is a little bigger than the opening; foam and yuzu 1.15 with the focus high (y 0.34 / 0.30) so the rim and the peel are in view; final 0.85. Checked on desktop and phone.
+
+## Strong zoom with the rim kept in view (7 Nov 2026)
+**Owner:** the gentler views kept the rim but lost the satisfying zoom of the earlier version. **Cause of the original conflict:** zooming in centred the shot on the middle of the glass, so the top (the rim) fell off the screen. **Fix:** a camera `top` anchor (`View.top`): the top edge of the shot is held at a point of the frame (about 4% down, just above the rim) whatever the zoom, so more zoom only ever loses the bottom. Views: opening unchanged (0.7); ice 1.0 and milk 1.05 (the action is at the bottom, so show the whole glass); matcha 1.3, blend 1.25, foam 1.4, yuzu 1.4 (the action is near the top); final 0.9. On a phone the anchor is shifted down 5% so the rim clears the logo row. 112 tests.

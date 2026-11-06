@@ -62,7 +62,7 @@ export interface StoryChapter {
   id: string;
   scroll: number;
   video: number;
-  view?: { zoom: number; x: number; y: number }; // where the camera looks at the start of the chapter (default: the whole frame)
+  view?: { zoom: number; x: number; y: number; top?: number }; // where the camera looks at the start of the chapter (default: the whole frame)
 }
 export interface Story {
   chapters: StoryChapter[];
@@ -83,7 +83,7 @@ export function parseStory(raw: unknown): Story | null {
     if (typeof id !== "string" || typeof scroll !== "number" || typeof video !== "number") return null;
     if (view !== undefined) {
       const ok = (n: unknown, lo: number, hi: number): boolean => typeof n === "number" && n >= lo && n <= hi;
-      if (!view || !ok(view.zoom, 0.5, 3) || !ok(view.x, 0, 1) || !ok(view.y, 0, 1)) return null;
+      if (!view || !ok(view.zoom, 0.5, 3) || !ok(view.x, 0, 1) || !ok(view.y, 0, 1) || (view.top !== undefined && !ok(view.top, 0, 1))) return null;
     }
     chapters.push(view ? { id, scroll, video, view } : { id, scroll, video });
   }

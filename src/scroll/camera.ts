@@ -6,6 +6,8 @@ export interface View {
   zoom: number;
   x: number;
   y: number;
+  /** If set, the top edge of the shot sits at this point of the frame (0 top, 1 bottom) instead of centring on `y`, so zooming in only ever loses the bottom. */
+  top?: number;
 }
 
 export const WIDE_VIEW: View = { zoom: 1, x: 0.5, y: 0.5 };
@@ -52,8 +54,9 @@ export interface Placement {
 /**
  * Like cameraRect, but the camera may also pull back past the edge of the frame (zoom below 1): the frame is then shown smaller, centred,
  * with the page colour around it (its soft edges melt into that colour). From zoom 1 up it behaves like cameraRect and fills the view.
+ * With `top` set, the shot's top edge is held at that point of the frame (when the shot is shorter than the frame), whatever the zoom.
  */
-export function cameraPlacement(frameW: number, frameH: number, viewW: number, viewH: number, zoom: number, fx: number, fy: number, maxScale = Infinity): Placement {
+export function cameraPlacement(frameW: number, frameH: number, viewW: number, viewH: number, zoom: number, fx: number, fy: number, maxScale = Infinity, top?: number): Placement {
   const cover = Math.max(viewW / frameW, viewH / frameH);
   const z = zoom >= 1 ? Math.max(1, Math.min(zoom, maxScale / cover)) : Math.max(MIN_ZOOM, zoom);
   const scale = cover * z;
@@ -61,7 +64,7 @@ export function cameraPlacement(frameW: number, frameH: number, viewW: number, v
   const vh = viewH / scale;
   const start = (frame: number, span: number, f: number): number => (span >= frame ? (frame - span) / 2 : Math.max(0, Math.min(frame - span, f * frame - span / 2)));
   const x0 = start(frameW, vw, fx);
-  const y0 = start(frameH, vh, fy);
+  const y0 = top !== undefined && vh < frameH ? Math.max(0, Math.min(frameH - vh, top * frameH)) : start(frameH, vh, fy);
   const ix0 = Math.max(0, x0);
   const iy0 = Math.max(0, y0);
   const ix1 = Math.min(frameW, x0 + vw);
@@ -79,5 +82,6 @@ export function storyView(p: number, story: Story): View {
     ys.push(ys[ys.length - 1]); // the last view holds to the end
     return monotoneCubic(xs, ys)(p);
   };
-  return { zoom: at((v) => v.zoom), x: at((v) => v.x), y: at((v) => v.y) };
+  const anyTop = story.chapters.some((c) => c.view?.top !== undefined);
+  return { zoom: at((v) => v.zoom), x: at((v) => v.x), y: at((v) => v.y), ...(anyTop ? { top: at((v) => v.top ?? 0) } : {}) };
 }
