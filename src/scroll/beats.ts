@@ -110,3 +110,15 @@ export function storyChapterAt(p: number, story: Story): number {
   for (let i = story.chapters.length - 1; i >= 0; i--) if (p >= story.chapters[i].scroll) return i;
   return 0;
 }
+
+/**
+ * Which chapter to show, given the one showing now. Moving to a neighbouring chapter needs the progress to go past its edge by `margin`,
+ * so a scroll that jitters back and forth across a boundary cannot make the step flicker. A jump of more than one chapter (a click on a
+ * step) switches at once. With no current chapter yet (-1) it simply reports the chapter at that progress.
+ */
+export function chapterWithHysteresis(p: number, current: number, story: Story, margin = 0.008): number {
+  const raw = storyChapterAt(p, story);
+  if (current < 0 || raw === current || Math.abs(raw - current) > 1) return raw;
+  if (raw > current) return p >= story.chapters[raw].scroll + margin ? raw : current;
+  return p <= story.chapters[current].scroll - margin ? raw : current;
+}

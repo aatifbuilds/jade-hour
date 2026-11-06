@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VIDEO_AT_BOUNDARY, chapterBoundaries, defaultStory, monotoneCubic, parseStory, storyChapterAt, storyRanges, storyVideoProgress, videoProgressAt } from "./beats";
+import { VIDEO_AT_BOUNDARY, chapterBoundaries, chapterWithHysteresis, defaultStory, monotoneCubic, parseStory, storyChapterAt, storyRanges, storyVideoProgress, videoProgressAt } from "./beats";
 import { CHAPTERS } from "./drink";
 
 describe("monotoneCubic", () => {
@@ -129,5 +129,48 @@ describe("storyChapterAt", () => {
     expect(storyChapterAt(-1, st)).toBe(0);
     expect(storyChapterAt(1, st)).toBe(2);
     expect(storyChapterAt(5, st)).toBe(2);
+  });
+});
+
+describe("chapterWithHysteresis", () => {
+  const st = { chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 0.3, video: 0.3 }, { id: "c", scroll: 0.7, video: 0.7 }] };
+
+  it("starts from nothing by reporting the chapter at that progress", () => {
+    expect(chapterWithHysteresis(0.5, -1, st)).toBe(1);
+  });
+
+  it("stays put when the progress is inside the current chapter", () => {
+    expect(chapterWithHysteresis(0.5, 1, st)).toBe(1);
+  });
+
+  it("only moves on to the next chapter once it is past the edge by the margin, and back once it is before it by the margin", () => {
+    expect(chapterWithHysteresis(0.301, 0, st)).toBe(0); // just over the edge: not yet
+    expect(chapterWithHysteresis(0.309, 0, st)).toBe(1); // clearly over: now
+    expect(chapterWithHysteresis(0.299, 1, st)).toBe(1); // just back across: not yet
+    expect(chapterWithHysteresis(0.291, 1, st)).toBe(0); // clearly back: now
+  });
+
+  it("does not flicker when the scroll jitters across a boundary", () => {
+    let cur = 0;
+    const changes: number[] = [];
+    for (const p of [0.29, 0.303, 0.297, 0.304, 0.296, 0.302, 0.298]) {
+      const next = chapterWithHysteresis(p, cur, st);
+      if (next !== cur) changes.push(next);
+      cur = next;
+    }
+    expect(changes).toEqual([]); // jitter within the margin never changes the step
+  });
+
+  it("switches at once for a jump of more than one chapter, like a click on a step", () => {
+    expect(chapterWithHysteresis(0.7005, 0, st)).toBe(2);
+    expect(chapterWithHysteresis(0.001, 2, st)).toBe(0);
+  });
+
+  it("settles on the right chapter after a steady scroll in either direction", () => {
+    let cur = 0;
+    for (let p = 0; p <= 1; p += 0.001) cur = chapterWithHysteresis(p, cur, st);
+    expect(cur).toBe(2);
+    for (let p = 1; p >= 0; p -= 0.001) cur = chapterWithHysteresis(p, cur, st);
+    expect(cur).toBe(0);
   });
 });

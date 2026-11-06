@@ -25,3 +25,14 @@
 
 ## Strong zoom with the rim kept in view (7 Nov 2026)
 **Owner:** the gentler views kept the rim but lost the satisfying zoom of the earlier version. **Cause of the original conflict:** zooming in centred the shot on the middle of the glass, so the top (the rim) fell off the screen. **Fix:** a camera `top` anchor (`View.top`): the top edge of the shot is held at a point of the frame (about 4% down, just above the rim) whatever the zoom, so more zoom only ever loses the bottom. Views: opening unchanged (0.7); ice 1.0 and milk 1.05 (the action is at the bottom, so show the whole glass); matcha 1.3, blend 1.25, foam 1.4, yuzu 1.4 (the action is near the top); final 0.9. On a phone the anchor is shifted down 5% so the rim clears the logo row. 112 tests.
+
+## Apple-style scroll and button behaviour, ported from RILL (7 Nov 2026)
+**Owner:** bring over the scroll/click changes from the earlier Apple-inspired project.
+**What RILL did, and what jade hour has now:**
+1. A critically damped spring smooths the scroll (fast flicks glide, nothing overshoots): already present; its speed is now `OMEGA.normal` (10), about 0.5 s to settle a full-length jump.
+2. **Buttons jump the scroll instantly and the picture glides there** on a slower spring (`OMEGA.glide` 4.2, about 1.6 s), then eases back to normal speed over 0.5 s (`springOmega`). No CSS smooth scroll (it would fly through the recipe). New shared handler `src/ui/anchors.ts` for every `#step` link: the top links (The drink, Steps, Letter, Order) and the step list.
+3. **Any wheel, touch or key press hands control straight back** (the glide stops at once).
+4. **Step hysteresis** (`chapterWithHysteresis`, margin 0.008 of the scroll): the step cannot flicker at a boundary; a click switches at once and shows only the destination, never the steps the picture glides past.
+**Measured in the browser (dev hook):** click Ice to Final pour: lands exactly on the target, overshoot about 0, 50% in 0.39 s, 95% in 1.1 s, 99% in 1.6 s, destination text shown immediately; the same jump as a plain scroll: 95% in 0.48 s, no overshoot (the glide is about 2.4x calmer); a wheel during a glide stops it at once; a top link glides home; jitter of plus or minus 30 px across a boundary: 0 step changes; a steady scroll changes the step exactly once per step in order, forwards (7) and back (7). Same in Chromium and Safari's engine; the phone's Order button glides.
+**Difference from RILL:** RILL's glide moved a 3D pose straight from scene to scene; here the picture is a video, so a long jump slowly scrubs through the frames in between (a calm time-lapse) while the text shows the destination. A dissolve-jump could replace it if that feels odd. 122 tests.
+**Not provable from here:** the feel on a real trackpad or phone swipe; `/review-animations` is for the owner to run.
