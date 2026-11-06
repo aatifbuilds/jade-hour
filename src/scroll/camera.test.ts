@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type Story, defaultStory, parseStory } from "./beats";
-import { MIN_ZOOM, WIDE_VIEW, cameraPlacement, cameraRect, storyView } from "./camera";
+import { MIN_ZOOM, WIDE_VIEW, cameraPlacement, cameraRect, mixView, storyView } from "./camera";
 
 describe("cameraRect", () => {
   it("at zoom 1 is a plain cover fit: the whole frame on one axis, centred trim on the other", () => {
@@ -208,5 +208,35 @@ describe("top anchor", () => {
     expect(storyView(0.25, defaultStory()).top).toBeUndefined();
     expect(parseStory(st)?.chapters[1].view?.top).toBe(0.04);
     expect(parseStory({ chapters: [st.chapters[0], { ...st.chapters[1], view: { zoom: 1.3, x: 0.5, y: 0.5, top: 2 } }] })).toBeNull();
+  });
+});
+
+describe("mixView", () => {
+  const a = { zoom: 1, x: 0.4, y: 0.5, top: 0.04 };
+  const b = { zoom: 1.4, x: 0.6, y: 0.3, top: 0.0 };
+
+  it("gives the first view at 0 and the second at 1, and the middle half way", () => {
+    expect(mixView(a, b, 0)).toEqual(a);
+    expect(mixView(a, b, 1)).toEqual(b);
+    const m = mixView(a, b, 0.5);
+    expect(m.zoom).toBeCloseTo(1.2, 9);
+    expect(m.x).toBeCloseTo(0.5, 9);
+    expect(m.y).toBeCloseTo(0.4, 9);
+    expect(m.top).toBeCloseTo(0.02, 9);
+  });
+
+  it("goes straight from one to the other: it never leaves the range between them", () => {
+    for (let t = 0; t <= 1; t += 0.05) {
+      const m = mixView(a, b, t);
+      expect(m.zoom).toBeGreaterThanOrEqual(1 - 1e-9);
+      expect(m.zoom).toBeLessThanOrEqual(1.4 + 1e-9);
+    }
+  });
+
+  it("clamps t, and copes with a missing top anchor", () => {
+    expect(mixView(a, b, -3)).toEqual(a);
+    expect(mixView(a, b, 9)).toEqual(b);
+    expect(mixView({ zoom: 1, x: 0.5, y: 0.5 }, b, 0.5).top).toBe(0); // takes the one that exists
+    expect(mixView(a, { zoom: 1, x: 0.5, y: 0.5 }, 0.5).top).toBeUndefined();
   });
 });

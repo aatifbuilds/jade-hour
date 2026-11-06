@@ -133,3 +133,18 @@ export function framesToEvict(center: number, state: ArrayLike<number>, keep: nu
   loaded.sort((a, b) => Math.abs(b - center) - Math.abs(a - center) || b - a);
   return loaded.slice(0, loaded.length - keep);
 }
+
+/**
+ * Whether a jump from one scroll position to another is long enough that the picture should dissolve straight to the new one instead of
+ * scrubbing through everything in between. A hop of about one step or less (progress distance up to `min`) still scrubs.
+ */
+export function shouldDissolve(fromP: number, toP: number, min = 0.2): boolean {
+  return Math.abs(toP - fromP) > min;
+}
+
+/** How far a cross-dissolve has got (0..1) after `elapsedMs` of `durationMs`, eased so it starts and ends gently. */
+export function dissolveAlpha(elapsedMs: number, durationMs: number): number {
+  if (durationMs <= 0) return 1;
+  const t = Math.max(0, Math.min(1, elapsedMs / durationMs));
+  return t * t * (3 - 2 * t);
+}

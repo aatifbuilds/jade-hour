@@ -6,11 +6,12 @@ import { createStage } from "./scene/stage";
 import { adaptQuality, type Quality } from "./scene/quality";
 import { createSequence, loadSequenceMeta } from "./scene/sequence";
 import { chapterWithHysteresis, defaultStory, parseStory, storyRanges, storyVideoProgress, type Story } from "./scroll/beats";
-import { storyView } from "./scroll/camera";
+import { mixView, storyView, type View } from "./scroll/camera";
+import { dissolveAlpha, shouldDissolve } from "./scroll/sequence";
 import { setupAnchors } from "./ui/anchors";
 import { createStepIndex } from "./ui/stepIndex";
 import { drinkAt } from "./scroll/drink";
-import { springOmega, stepSpring } from "./scroll/spring";
+import { OMEGA, springOmega, stepSpring } from "./scroll/spring";
 import { COPY } from "./ui/copy";
 
 const STORY_SCREENS = 9; // the chapters fill 9 screens of scrolling (see .chapter in layout.css)
@@ -54,11 +55,17 @@ for (const c of storyRanges(story)) {
 }
 
 /** What the page draws into the stage: the video frames if they have been made, otherwise the live 3D drink. */
+interface DrawFx {
+  view?: View; // where the camera looks (default: the story's view for this position)
+  dissolve?: number; // 0..1: fade the new picture in over the frozen old one
+}
 interface Drawer {
   resize(): void;
   setPixelRatioCap(cap: number): void;
   maxPixelRatio: number;
-  draw(scrollProgress: number, timeSec: number): void;
+  draw(scrollProgress: number, timeSec: number, fx?: DrawFx): void;
+  snapshot?(): void; // freeze the picture on screen (video only)
+  isReady?(scrollProgress: number): boolean; // are the frames for this position loaded? (video only)
 }
 function makeDrawer(): Drawer {
   if (seqMeta) {
@@ -66,7 +73,7 @@ function makeDrawer(): Drawer {
     // the whole page takes the video's backdrop colour: no box, no seam (on a phone, the colour along the picture's bottom edge, which the text area continues)
     document.documentElement.style.setProperty("--bg", phone && seqMeta.bgBottom ? seqMeta.bgBottom : seqMeta.bg);
     const seq = createSequence(canvas, seqMeta, base, phone ? 0.9 : 0, phone ? 0.05 : 0); // on a phone the glass never gets smaller than a screen's worth
-    return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p) => seq.render(storyVideoProgress(p, story), storyView(p, story)) };
+    return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p, _t, fx) => seq.render(storyVideoProgress(p, story), fx?.view ?? storyView(p, story), fx?.dissolve), snapshot: () => seq.snapshot(), isReady: (p) => seq.isReady(storyVideoProgress(p, story)) };
   }
   const stage = createStage(canvas);
   return { resize: stage.resize, setPixelRatioCap: stage.setPixelRatioCap, maxPixelRatio: stage.maxPixelRatio, draw: (p, t) => stage.render(drinkAt(p), t) };
@@ -98,21 +105,38 @@ function showActive(p: number): void {
   if (next !== activeIdx) applyActive(next);
 }
 
-// Buttons jump the scroll to the step and the picture glides there slowly; any wheel, touch or key hands control straight back.
+// Buttons jump the scroll to the step. A hop of about one step still glides there slowly (the picture scrubs the one step). A longer jump
+// (Steps to Letter, say) does not scrub through everything in between, which would load and flash the whole video and zoom through every
+// step's view: the picture dissolves straight to the destination and the camera glides straight from the old view to the new one.
+// Any wheel, touch or key hands control straight back.
 const GLIDE_MS = 1600;
+const DISSOLVE_MS = 800;
+const DISSOLVE_WAIT_MS = 1200; // never wait longer than this for the destination's frames
 let glideUntil = 0;
+let dissolve: { clickedAt: number; start: number | null } | null = null;
+let camGlide: { from: View; e: { x: number; v: number } } | null = null;
+let currentView: View = storyView(0, story);
 setupAnchors({
   scrollYFor: (id) => {
     const r = ranges.find((x) => x.id === id);
     return r ? scrollYFor(r.from + (r.from > 0 ? 0.0005 : 0)) : undefined;
   },
   onGlide: (id) => {
-    glideUntil = performance.now() + GLIDE_MS;
+    const now = performance.now();
+    glideUntil = now + GLIDE_MS;
     const idx = story.chapters.findIndex((c) => c.id === id);
     if (idx >= 0 && idx !== activeIdx) applyActive(idx);
+    const to = rawProgress(); // the scroll has already jumped to the step
+    if (drawer.snapshot && shouldDissolve(spring.x, to)) {
+      drawer.snapshot(); // freeze the picture as it is now
+      dissolve = { clickedAt: now, start: null };
+      camGlide = { from: currentView, e: { x: 0, v: 0 } }; // the camera glides straight from here to the destination's view
+      spring = { x: to, v: 0 }; // the video jumps to the destination (no scrubbing through the frames in between)
+    }
   },
   onTakeover: () => {
     glideUntil = 0;
+    dissolve = null; // the visitor is in control again: no waiting, no fade
   },
 });
 
@@ -131,14 +155,33 @@ function frame(now: number): void {
   const dt = Math.min(0.05, (now - last) / 1000);
   frameMs += ((now - last) - frameMs) * 0.05;
   last = now;
-  spring = stepSpring(spring, rawProgress(), springOmega(now, glideUntil), dt);
+  const raw = rawProgress();
+  spring = dissolve ? { x: raw, v: 0 } : stepSpring(spring, raw, springOmega(now, glideUntil), dt);
   if (++frames % 30 === 0) {
     const next = adaptQuality(quality, frameMs, drawer.maxPixelRatio);
     if (next.cap !== quality.cap) drawer.setPixelRatioCap(next.cap);
     quality = next;
   }
-  drawer.draw(clamp01(spring.x), now / 1000);
-  showActive(rawProgress());
+  const p = clamp01(spring.x);
+  let view = storyView(p, story);
+  if (camGlide) {
+    camGlide.e = stepSpring(camGlide.e, 1, now < glideUntil ? OMEGA.glide : OMEGA.normal, dt);
+    view = mixView(camGlide.from, view, clamp01(camGlide.e.x));
+    if (camGlide.e.x > 0.995) camGlide = null;
+  }
+  currentView = view;
+  let dissolveValue: number | undefined;
+  if (dissolve) {
+    const ready = drawer.isReady ? drawer.isReady(p) : true;
+    if (dissolve.start === null && (ready || now - dissolve.clickedAt > DISSOLVE_WAIT_MS)) dissolve.start = now;
+    dissolveValue = dissolve.start === null ? 0 : dissolveAlpha(now - dissolve.start, DISSOLVE_MS);
+    if (dissolveValue >= 1) {
+      dissolve = null;
+      dissolveValue = undefined;
+    }
+  }
+  drawer.draw(p, now / 1000, { view, dissolve: dissolveValue });
+  showActive(raw);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -152,6 +195,8 @@ if (import.meta.env.DEV) {
       get raw() { return rawProgress(); },
       get activeIndex() { return activeIdx; },
       get gliding() { return performance.now() < glideUntil; },
+      get view() { return currentView; },
+      get dissolving() { return dissolve !== null; },
       get activeStep() { return story.chapters[activeIdx]?.id; },
       get frameMs() { return frameMs; },
       get pixelRatioCap() { return quality.cap; },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, edgeAlpha, framesToEvict, nearestLoaded, nextToLoad, safeBox } from "./sequence";
+import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, dissolveAlpha, edgeAlpha, framesToEvict, nearestLoaded, nextToLoad, safeBox, shouldDissolve } from "./sequence";
 
 describe("frameBlend", () => {
   it("lands exactly on a frame at the ends and at whole positions", () => {
@@ -263,5 +263,43 @@ describe("framesToEvict", () => {
     s[7] = LOADED;
     s[4] = LOADING;
     expect(framesToEvict(0, s, 1)).toEqual([7]);
+  });
+});
+
+describe("shouldDissolve", () => {
+  it("dissolves for a jump of more than a step and scrubs for a hop of about one step or less", () => {
+    expect(shouldDissolve(0.08, 0.87)).toBe(true); // Steps to Letter
+    expect(shouldDissolve(0.87, 0.08)).toBe(true); // and back
+    expect(shouldDissolve(0.08, 0.21)).toBe(false); // one step on
+    expect(shouldDissolve(0.5, 0.5)).toBe(false);
+    expect(shouldDissolve(0.1, 0.3)).toBe(false); // exactly the limit still scrubs
+    expect(shouldDissolve(0.1, 0.31)).toBe(true);
+  });
+
+  it("takes the limit as a parameter", () => {
+    expect(shouldDissolve(0, 0.1, 0.05)).toBe(true);
+    expect(shouldDissolve(0, 0.1, 0.5)).toBe(false);
+  });
+});
+
+describe("dissolveAlpha", () => {
+  it("runs from nothing to everything with a gentle start and end", () => {
+    expect(dissolveAlpha(0, 800)).toBe(0);
+    expect(dissolveAlpha(800, 800)).toBe(1);
+    expect(dissolveAlpha(400, 800)).toBeCloseTo(0.5, 9);
+    expect(dissolveAlpha(40, 800)).toBeLessThan(0.01); // slow to start
+    expect(dissolveAlpha(760, 800)).toBeGreaterThan(0.99); // slow to finish
+  });
+
+  it("never goes outside 0..1 or backwards", () => {
+    let last = -1;
+    for (let t = -100; t <= 1000; t += 10) {
+      const a = dissolveAlpha(t, 800);
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(a).toBeLessThanOrEqual(1);
+      expect(a).toBeGreaterThanOrEqual(last - 1e-12);
+      last = a;
+    }
+    expect(dissolveAlpha(5, 0)).toBe(1);
   });
 });

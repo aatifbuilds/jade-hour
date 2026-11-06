@@ -72,6 +72,16 @@ export function cameraPlacement(frameW: number, frameH: number, viewW: number, v
   return { sx: ix0, sy: iy0, sw: ix1 - ix0, sh: iy1 - iy0, dx: (ix0 - x0) * scale, dy: (iy0 - y0) * scale, dw: (ix1 - ix0) * scale, dh: (iy1 - iy0) * scale };
 }
 
+/** A view part-way between two views (t 0 gives a, 1 gives b): used to glide the camera straight from one step's view to another's. */
+export function mixView(a: View, b: View, t: number): View {
+  const k = Math.max(0, Math.min(1, t));
+  const mix = (x: number, y: number): number => x + (y - x) * k;
+  const view: View = { zoom: mix(a.zoom, b.zoom), x: mix(a.x, b.x), y: mix(a.y, b.y) };
+  if (a.top !== undefined && b.top !== undefined) view.top = mix(a.top, b.top);
+  else if (b.top !== undefined) view.top = b.top;
+  return view;
+}
+
 const viewOf = (c: { view?: View }): View => c.view ?? WIDE_VIEW;
 
 /** The camera at a scroll progress: a smooth path through each chapter's view, easing in and out at every one. */

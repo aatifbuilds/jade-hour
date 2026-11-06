@@ -1,4 +1,4 @@
-import { type View, cameraPlacement } from "../scroll/camera";
+import { type Placement, type View, cameraPlacement } from "../scroll/camera";
 import { LOADED, LOADING, NOT_LOADED, frameBlend, framesToEvict, nearestLoaded, nextToLoad } from "../scroll/sequence";
 
 export interface SequenceMeta {
@@ -21,14 +21,19 @@ export interface Sequence {
   resize(): void;
   setPixelRatioCap(cap: number): void;
   maxPixelRatio: number;
-  render(videoProgress: number, view: View): void; // 0..1 through the video, and where the camera looks
+  /** Draw the picture at a position (0..1) through the video, with the camera at `view`. With `dissolve` (0..1) the new picture fades in over the snapshot taken earlier. */
+  render(videoProgress: number, view: View, dissolve?: number): void;
+  /** Freeze what is on screen now, for a dissolve to start from. */
+  snapshot(): void;
+  /** Are the frames around this position decoded (so a dissolve to it will not show a stale picture)? */
+  isReady(videoProgress: number): boolean;
   loadedCount(): number;
   dispose(): void;
 }
 
 const FAILED = 3; // a frame that would not load; skipped so we never retry it forever
 const PARALLEL = 4;
-const WINDOW = 48; // frames are fetched this far either side of the visitor; decoded pictures are big, so only this many stay in memory
+const WINDOW = 30; // frames are fetched this far either side of the visitor; decoded pictures are big, so only this many stay in memory
 const MAX_MAGNIFY = 2.6; // screen pixels per picture pixel: beyond this a 720p source looks too soft
 
 /** Reads and checks public/frames/meta.json. Returns null if the frames have not been made (so the page uses the 3D drink). */
@@ -123,24 +128,64 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
       }
     });
   }
-  const paintBackdrop = (frameLeft: number, frameTop: number, frameW: number, frameH: number): void => {
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = meta.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  type Ctx = CanvasRenderingContext2D;
+  const paintBackdrop = (c: Ctx, frameLeft: number, frameTop: number, frameW: number, frameH: number): void => {
+    c.globalAlpha = 1;
+    c.fillStyle = meta.bg;
+    c.fillRect(0, 0, canvas.width, canvas.height);
     if (!corners) return;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = "high";
     // each swatch pixel is as big as the picture, centred on a corner, so the colours blend across exactly the picture's area and beyond
-    ctx.drawImage(swatch, frameLeft - frameW / 2, frameTop - frameH / 2, frameW * 2, frameH * 2);
+    c.drawImage(swatch, frameLeft - frameW / 2, frameTop - frameH / 2, frameW * 2, frameH * 2);
   };
 
   // `topShift` moves the shot's top edge up the frame, which sits the glass lower on screen (a phone has a logo row to clear)
   const topOf = (view: View): number | undefined => (view.top === undefined ? undefined : Math.max(0, view.top - topShift));
+  const placement = (bmp: ImageBitmap, view: View): Placement =>
+    cameraPlacement(bmp.width, bmp.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)), topOf(view));
+  const drawBmp = (c: Ctx, bmp: ImageBitmap, alpha: number, view: View): void => {
+    const p = placement(bmp, view);
+    c.globalAlpha = alpha;
+    c.drawImage(bmp, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.dw, p.dh);
+  };
 
-  const draw = (bmp: ImageBitmap, alpha: number, view: View): void => {
-    const p = cameraPlacement(bmp.width, bmp.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)), topOf(view));
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(bmp, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.dw, p.dh);
+  /** Which two frames to show for a position and how much to mix them, using the nearest loaded ones while the right ones are still arriving. */
+  const frameChoice = (p: number): { a: number; b: number; t: number } | null => {
+    const f = frameBlend(p, meta.count);
+    const a = state[f.a] === LOADED ? f.a : nearestLoaded(f.a, state);
+    const b = state[f.b] === LOADED ? f.b : a;
+    if (a < 0) return null; // nothing has arrived yet: the stage shows its background colour
+    return { a, b, t: b === a ? 0 : Math.round(f.t * 64) / 64 }; // fine steps are enough, and let us skip redrawing identical pictures
+  };
+
+  /** Paint the picture for a position onto a canvas (clearing it first). False if no frame has arrived yet. */
+  const paintPicture = (c: Ctx, p: number, view: View): boolean => {
+    const ch = frameChoice(p);
+    if (!ch) return false;
+    c.clearRect(0, 0, canvas.width, canvas.height);
+    const bmpA = bitmaps[ch.a] as ImageBitmap;
+    const pl = placement(bmpA, view);
+    if (pl.dw < canvas.width - 0.5 || pl.dh < canvas.height - 0.5) {
+      const sc = pl.dw / pl.sw; // screen pixels per picture pixel
+      paintBackdrop(c, pl.dx - pl.sx * sc, pl.dy - pl.sy * sc, bmpA.width * sc, bmpA.height * sc);
+    }
+    drawBmp(c, bmpA, 1, view);
+    if (ch.t > 0 && bitmaps[ch.b]) drawBmp(c, bitmaps[ch.b] as ImageBitmap, ch.t, view);
+    c.globalAlpha = 1;
+    return true;
+  };
+
+  // Two hidden canvases for a dissolve: the frozen "before" picture, and the new picture drawn on its own so it can be faded in whole.
+  let snap: HTMLCanvasElement | undefined;
+  let layer: HTMLCanvasElement | undefined;
+  const sized = (c: HTMLCanvasElement | undefined): HTMLCanvasElement => {
+    const out = c ?? document.createElement("canvas");
+    if (out.width !== canvas.width || out.height !== canvas.height) {
+      out.width = canvas.width;
+      out.height = canvas.height;
+    }
+    return out;
   };
 
   return {
@@ -150,28 +195,43 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
       cap = next;
       resize();
     },
-    render(p, view) {
+    snapshot() {
+      snap = sized(snap);
+      const sc = snap.getContext("2d");
+      sc?.clearRect(0, 0, snap.width, snap.height);
+      sc?.drawImage(canvas, 0, 0);
+    },
+    isReady(vp) {
+      const f = frameBlend(vp, meta.count);
+      return state[f.a] === LOADED && state[f.b] === LOADED;
+    },
+    render(p, view, dissolve) {
       center = Math.round(Math.max(0, Math.min(1, p)) * (meta.count - 1));
-      pump();
-      const f = frameBlend(p, meta.count);
-      const a = state[f.a] === LOADED ? f.a : nearestLoaded(f.a, state);
-      const b = state[f.b] === LOADED ? f.b : a;
-      if (a < 0) return; // nothing has arrived yet: the stage shows its background colour
-      const t = b === a ? 0 : Math.round(f.t * 64) / 64; // fine steps are enough, and let us skip redrawing identical pictures
-      const key = `${a}|${b}|${t}|${view.zoom.toFixed(3)}|${view.x.toFixed(3)}|${view.y.toFixed(3)}|${(view.top ?? -1).toFixed(3)}|${canvas.width}x${canvas.height}`;
+      pump(); // the loader follows the new position, so only the frames around the destination are fetched
+      if (dissolve !== undefined && dissolve < 1 && snap) {
+        ctx.globalAlpha = 1;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(snap, 0, 0); // the picture as it was when the button was pressed
+        if (dissolve > 0) {
+          layer = sized(layer);
+          const lc = layer.getContext("2d");
+          if (lc && paintPicture(lc, p, view)) {
+            ctx.globalAlpha = dissolve;
+            ctx.drawImage(layer, 0, 0);
+            ctx.globalAlpha = 1;
+          }
+        }
+        lastKey = ""; // when the dissolve is over, redraw normally
+        dirty = true;
+        return;
+      }
+      const ch = frameChoice(p);
+      if (!ch) return;
+      const key = `${ch.a}|${ch.b}|${ch.t}|${view.zoom.toFixed(3)}|${view.x.toFixed(3)}|${view.y.toFixed(3)}|${(topOf(view) ?? -1).toFixed(3)}|${canvas.width}x${canvas.height}`;
       if (!dirty && key === lastKey) return;
       dirty = false;
       lastKey = key;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const bmpA = bitmaps[a] as ImageBitmap;
-      const pl = cameraPlacement(bmpA.width, bmpA.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)), topOf(view));
-      if (pl.dw < canvas.width - 0.5 || pl.dh < canvas.height - 0.5) {
-        const sc = pl.dw / pl.sw; // screen pixels per picture pixel
-        paintBackdrop(pl.dx - pl.sx * sc, pl.dy - pl.sy * sc, bmpA.width * sc, bmpA.height * sc);
-      }
-      draw(bmpA, 1, view);
-      if (t > 0 && bitmaps[b]) draw(bitmaps[b] as ImageBitmap, t, view);
-      ctx.globalAlpha = 1;
+      paintPicture(ctx, p, view);
     },
     loadedCount: () => loaded,
     dispose() {
