@@ -31,6 +31,7 @@ a { color: inherit; }
 .story { position: relative; z-index: 2; }
 .chapter { height: calc(var(--span) * 900svh); }
 .tail { position: relative; z-index: 2; height: 100svh; }
+.note { position: absolute; left: var(--margin); right: var(--margin); bottom: 22px; font-size: var(--step-small); color: var(--ink-deep); }
 
 /* The words for the step on screen live in one fixed layer; the active step fades and rises in, the one leaving fades out quickly. */
 .copy { position: fixed; inset: 0; z-index: 2; pointer-events: none; }

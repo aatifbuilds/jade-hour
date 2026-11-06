@@ -6,7 +6,7 @@ Learn web design and 3D by building a scroll-driven page where a matcha latte is
 (three.js), our own art. Reuses the engine built for Launchpad/bottle-page (RILL).
 
 ## Hard rules
-- **Private for now.** Never push to GitHub or publish anything without the owner's explicit OK (the owner said "public later", they will say when).
+- **Published on the owner's OK, 7 Nov 2026** (public GitHub repo `aatifbuilds/jade-hour` and GitHub Pages), as a fictional café, with the AI-generated video disclosed on the page and in the README. Never publish anything else, or change what is public, without the owner's explicit OK.
 - **No third-party assets.** The reel's frames, video, text and artwork are never copied into `src/` or `public/`. Reference stills live only in git-ignored `docs/reference/`. All copy, art and brand names are original and fictional.
 - **Free tools only:** three.js, Motion, Vite, Vitest, ESLint (MIT). Fonts self-hosted through `@fontsource/*` (no external requests).
 - Secrets go in `.env.local` only (there are none). `.env*` stays in `.gitignore`.
