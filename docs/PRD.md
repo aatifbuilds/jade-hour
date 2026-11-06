@@ -1,4 +1,4 @@
-# PRD: matcha-page (fictional brand, name chosen at the direction gate)
+# PRD: matcha-page (fictional brand: **jade hour**)
 
 **Problem / why:** the owner is a PM learning to build. A saved reel showed a matcha latte building itself on scroll. This build practises scroll-driven 3D, glass and liquids, editorial layout and typography.
 

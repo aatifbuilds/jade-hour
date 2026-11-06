@@ -7,7 +7,7 @@ On this page, **the drink's own build order (ice, milk, matcha, blend, foam, yuz
 Competitor test: a matcha café's page that lists "our drinks" fails this sentence; only a page whose scroll *is* the recipe passes.
 **The one live thing:** scroll (or tap a step) and the glass is built or unbuilt in front of you, in both directions.
 
-## Name (fictional, not trademark-checked, for a practice build only). Pick one:
+## Name: **jade hour** (chosen by the owner, 6 Nov 2026; fictional, not trademark-checked, for a practice build only). Options that were offered:
 1. **jade hour** (recommended): the afternoon hour for a green drink. Nine characters, fits the monument-size wordmark on one line.
 2. **seven pours**: counts the steps (ice, milk, matcha, blend, foam, yuzu, final pour).
 3. **still green**: the colour of the drink after it settles.
@@ -29,7 +29,8 @@ Competitor test: a matcha café's page that lists "our drinks" fails this senten
 6. **Footer (photo half, menu half):** a close crop of the glass on one half, the menu set large on the other half, the name returning small.
 
 ## Pictures
-The hero object is the live 3D glass (our own art). The dealt "Architecture" photographs do not fit and are not used. Extra pictures (the house rules ask for four or more real ones) would come from open archives with credits (for example a yuzu botanical plate, a tea whisk engraving, tea-garden photographs) through `assets.mjs`. **Owner decision needed:** use a few credited open-licence pictures, or keep the page to the 3D glass, type and flat colour only (our project rule bans third-party assets from the reel; open archives are a separate case I won't use without your OK).
+**Decided by the owner (6 Nov 2026):** online pictures are for **reference and inspiration only**. The page itself ships **no found or third-party pictures**: the hero object is the live 3D glass (our own art), and the rest is type, flat colour and our own drawings. This is a deliberate exception to the design skill's "four or more real pictures" floor; the inspector will flag it and we accept that.
+Reference photos (iced matcha lattes, ice in glass, yuzu) are kept only in git-ignored `docs/reference/matcha/` with their credits; what they taught us is in `docs/reference-notes.md`. The dealt "Architecture" photographs are not used.
 
 ## Motion
 The signature move: the big name scales down a few percent as the first screen leaves (under 8% travel, scroll-linked). Everything else is the glass itself responding to scroll (RILL's pose springs), with small staggered entrances for the column and press/hover feedback on controls; transform and opacity only; reduced motion keeps content and drops travel.
