@@ -1,13 +1,20 @@
-import { type View, cameraRect } from "../scroll/camera";
-import { LOADED, LOADING, NOT_LOADED, frameBlend, nearestLoaded, nextToLoad } from "../scroll/sequence";
+import { type View, cameraPlacement } from "../scroll/camera";
+import { LOADED, LOADING, NOT_LOADED, frameBlend, framesToEvict, nearestLoaded, nextToLoad } from "../scroll/sequence";
 
 export interface SequenceMeta {
   count: number;
   bg: string; // the video's backdrop colour, so the stage can match it with no seam
   bgBottom?: string; // the backdrop colour along the bottom edge of the phone cut, so the text area below it continues it
   ext: string;
-  desktop: { w: number; h: number; dir: string };
-  phone: { w: number; h: number; dir: string };
+  desktop: SequenceVariant;
+  phone: SequenceVariant;
+}
+
+export interface SequenceVariant {
+  w: number;
+  h: number;
+  dir: string;
+  corners?: { tl: string; tr: string; bl: string; br: string }; // the backdrop colour at the four corners of the picture
 }
 
 export interface Sequence {
@@ -21,6 +28,7 @@ export interface Sequence {
 
 const FAILED = 3; // a frame that would not load; skipped so we never retry it forever
 const PARALLEL = 4;
+const WINDOW = 48; // frames are fetched this far either side of the visitor; decoded pictures are big, so only this many stay in memory
 const MAX_MAGNIFY = 2.6; // screen pixels per picture pixel: beyond this a 720p source looks too soft
 
 /** Reads and checks public/frames/meta.json. Returns null if the frames have not been made (so the page uses the 3D drink). */
@@ -39,11 +47,11 @@ export async function loadSequenceMeta(base: string): Promise<SequenceMeta | nul
 
 /**
  * Plays the video as a sequence of pictures on a canvas, driven by scroll, through a camera that can zoom in and look at part of the
- * frame (`zoomBoost` zooms in a little more, e.g. on a phone where the glass should fill more of the screen). The picture nearest the visitor loads first and
+ * frame (`minZoom` keeps it from pulling back too far, e.g. on a phone where the glass would become tiny). The picture nearest the visitor loads first and
  * the rest follow outwards; between two frames it cross-fades, so a modest frame count still scrubs smoothly; while a frame is
  * still loading it shows the nearest one that has arrived, so there is never a blank stage.
  */
-export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, base: string, zoomBoost = 1): Sequence {
+export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, base: string, minZoom = 0): Sequence {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas is not available");
   const variant = window.innerWidth <= 700 ? meta.phone : meta.desktop;
@@ -61,7 +69,7 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
 
   const pump = (): void => {
     while (!disposed && inflight < PARALLEL) {
-      const i = nextToLoad(center, state);
+      const i = nextToLoad(center, state, WINDOW);
       if (i < 0) return;
       state[i] = LOADING;
       inflight++;
@@ -73,6 +81,12 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
           bitmaps[i] = bmp;
           state[i] = LOADED;
           loaded++;
+          for (const j of framesToEvict(center, state, 2 * WINDOW + 1)) {
+            bitmaps[j]?.close();
+            bitmaps[j] = undefined;
+            state[j] = NOT_LOADED;
+            loaded--;
+          }
           dirty = true; // a better picture may be available for what is on screen
         })
         .catch(() => {
@@ -94,10 +108,36 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
   resize();
   pump();
 
+  // The backdrop is a soft lighting gradient (light on one side, darker on the other), so when the camera pulls back past the picture the
+  // margin is painted from the picture's four corner colours (blended smoothly across), and the picture's soft edge melts into it.
+  const corners = variant.corners;
+  const swatch = document.createElement("canvas");
+  swatch.width = 2;
+  swatch.height = 2;
+  if (corners) {
+    const sctx = swatch.getContext("2d");
+    [[corners.tl, 0, 0], [corners.tr, 1, 0], [corners.bl, 0, 1], [corners.br, 1, 1]].forEach(([c, x, y]) => {
+      if (sctx) {
+        sctx.fillStyle = c as string;
+        sctx.fillRect(x as number, y as number, 1, 1);
+      }
+    });
+  }
+  const paintBackdrop = (frameLeft: number, frameTop: number, frameW: number, frameH: number): void => {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = meta.bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!corners) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    // each swatch pixel is as big as the picture, centred on a corner, so the colours blend across exactly the picture's area and beyond
+    ctx.drawImage(swatch, frameLeft - frameW / 2, frameTop - frameH / 2, frameW * 2, frameH * 2);
+  };
+
   const draw = (bmp: ImageBitmap, alpha: number, view: View): void => {
-    const r = cameraRect(bmp.width, bmp.height, canvas.width, canvas.height, view.zoom * zoomBoost, view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)));
+    const p = cameraPlacement(bmp.width, bmp.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)));
     ctx.globalAlpha = alpha;
-    ctx.drawImage(bmp, r.sx, r.sy, r.sw, r.sh, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bmp, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.dw, p.dh);
   };
 
   return {
@@ -120,7 +160,13 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
       dirty = false;
       lastKey = key;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      draw(bitmaps[a] as ImageBitmap, 1, view);
+      const bmpA = bitmaps[a] as ImageBitmap;
+      const pl = cameraPlacement(bmpA.width, bmpA.height, canvas.width, canvas.height, Math.max(view.zoom, minZoom), view.x, view.y, MAX_MAGNIFY * (canvas.width / (canvas.clientWidth || canvas.width)));
+      if (pl.dw < canvas.width - 0.5 || pl.dh < canvas.height - 0.5) {
+        const sc = pl.dw / pl.sw; // screen pixels per picture pixel
+        paintBackdrop(pl.dx - pl.sx * sc, pl.dy - pl.sy * sc, bmpA.width * sc, bmpA.height * sc);
+      }
+      draw(bmpA, 1, view);
       if (t > 0 && bitmaps[b]) draw(bitmaps[b] as ImageBitmap, t, view);
       ctx.globalAlpha = 1;
     },

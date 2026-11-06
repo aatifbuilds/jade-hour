@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, nearestLoaded, nextToLoad, safeBox } from "./sequence";
+import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, edgeAlpha, framesToEvict, nearestLoaded, nextToLoad, safeBox } from "./sequence";
 
 describe("frameBlend", () => {
   it("lands exactly on a frame at the ends and at whole positions", () => {
@@ -61,6 +61,14 @@ describe("nextToLoad", () => {
     s[3] = LOADED;
     expect(nextToLoad(2, s)).toBe(1);
     expect(nextToLoad(0, mk(5, LOADED))).toBe(-1);
+  });
+
+  it("never looks further than the radius, and says so when nothing is left within it", () => {
+    const s = mk(30);
+    expect(nextToLoad(15, s, 2)).toBe(15);
+    for (const i of [15, 16, 14, 17, 13]) s[i] = LOADED; // the whole range within 2 of 15 is done
+    expect(nextToLoad(15, s, 2)).toBe(-1);
+    expect(nextToLoad(15, s)).toBe(18); // without a limit it carries on outwards
   });
 
   it("handles a centre outside the range", () => {
@@ -206,5 +214,54 @@ describe("centerBox", () => {
       expect(p.y + p.h).toBeLessThanOrEqual(box.y + box.h);
       expect(p.w / p.h).toBeCloseTo(0.75, 1);
     }
+  });
+});
+
+describe("edgeAlpha", () => {
+  it("is nearly clear at the very edge and fully opaque from the feather width inwards", () => {
+    expect(edgeAlpha(0, 300, 974, 678, 60)).toBeLessThan(0.01);
+    expect(edgeAlpha(973, 300, 974, 678, 60)).toBeLessThan(0.01);
+    expect(edgeAlpha(300, 0, 974, 678, 60)).toBeLessThan(0.01);
+    expect(edgeAlpha(300, 677, 974, 678, 60)).toBeLessThan(0.01);
+    expect(edgeAlpha(60, 300, 974, 678, 60)).toBe(1);
+    expect(edgeAlpha(487, 339, 974, 678, 60)).toBe(1);
+  });
+
+  it("rises steadily from the edge to the inside and is the same on all four sides", () => {
+    let last = -1;
+    for (let x = 0; x <= 60; x++) {
+      const a = edgeAlpha(x, 300, 974, 678, 60);
+      expect(a).toBeGreaterThanOrEqual(last - 1e-12);
+      last = a;
+    }
+    expect(edgeAlpha(20, 300, 974, 678, 60)).toBeCloseTo(edgeAlpha(953, 300, 974, 678, 60), 12);
+    expect(edgeAlpha(300, 20, 974, 678, 60)).toBeCloseTo(edgeAlpha(300, 657, 974, 678, 60), 12);
+    expect(edgeAlpha(20, 20, 974, 678, 60)).toBeCloseTo(edgeAlpha(20, 300, 974, 678, 60), 12); // a corner is as faded as the nearest edge
+  });
+
+  it("does nothing when there is no feather", () => {
+    expect(edgeAlpha(0, 0, 10, 10, 0)).toBe(1);
+  });
+});
+
+describe("framesToEvict", () => {
+  it("lets go of nothing while within the limit", () => {
+    const s = new Array<number>(10).fill(LOADED);
+    expect(framesToEvict(5, s, 10)).toEqual([]);
+    expect(framesToEvict(5, s, 12)).toEqual([]);
+  });
+
+  it("lets go of the farthest frames first, down to the limit", () => {
+    const s = new Array<number>(10).fill(LOADED);
+    expect(framesToEvict(5, s, 7).sort((a, b) => a - b)).toEqual([0, 1, 9]); // 0 and 1 and 9 are farthest from 5
+    expect(framesToEvict(0, s, 3).sort((a, b) => a - b)).toEqual([3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it("only counts frames that are really loaded and never evicts ones that are not", () => {
+    const s = new Array<number>(8).fill(NOT_LOADED);
+    s[0] = LOADED;
+    s[7] = LOADED;
+    s[4] = LOADING;
+    expect(framesToEvict(0, s, 1)).toEqual([7]);
   });
 });

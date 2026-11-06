@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Turns the drink video into the frame sequence the page scrubs as you scroll.
 
-   node scripts/frames.mjs --in docs/source-video/jade-hour.mp4 [--frames 260] [--out public/frames] [--safe 0.12,0.06,0.88,1] [--quality 78] [--sharpen 0.6]
+   node scripts/frames.mjs --in docs/source-video/jade-hour.mp4 [--frames 260] [--out public/frames] [--safe 0.12,0.06,0.88,1] [--quality 78] [--sharpen 0.6] [--feather 0.12]
 
    It keeps only the SAFE region of every frame (default: x 12% to 88%, y 6% to the bottom, centred on the glass), which leaves out the
    corner where the video tool stamps its watermark and the top edge where a hand or a spoon handle can enter. It writes two cuts as WebP
@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import sharp from "sharp";
-import { centerBox, safeBox } from "../src/scroll/sequence.ts";
+import { centerBox, edgeAlpha, safeBox } from "../src/scroll/sequence.ts";
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -30,6 +30,7 @@ const out = resolve(opt("out", "public/frames"));
 const count = Number(opt("frames", "260"));
 const quality = Number(opt("quality", "78"));
 const sharpen = Number(opt("sharpen", "0.6"));
+const featherFrac = Number(opt("feather", "0.12")); // the soft edge, as a share of the picture's shorter side (0 for none)
 const [left, top, right, bottom] = opt("safe", "0.12,0.06,0.88,1").split(",").map(Number);
 
 const run = (cmd, a) => execFileSync(cmd, a, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -60,35 +61,38 @@ try {
     if (files.length < 2) throw new Error("the video produced fewer than 2 frames");
     frameCount = files.length;
 
-    if (name === "desktop") {
-      // the backdrop colour: the average of small patches in the four corners of the first (safe) frame
-      const patch = Math.max(8, Math.round(box.w * 0.03));
-      const corners = [[0, 0], [box.w - patch, 0], [0, box.h - patch], [box.w - patch, box.h - patch]];
-      const sums = [0, 0, 0];
-      for (const [l, t] of corners) {
-        const stats = await sharp(join(raw, files[0])).extract({ left: l, top: t, width: patch, height: patch }).stats();
-        stats.channels.slice(0, 3).forEach((c, i) => (sums[i] += c.mean / corners.length));
-      }
-      bg = "#" + sums.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-    }
-
-    if (name === "phone") {
-      // the phone cut sits above a text area: sample its bottom-left patch (clear of the glass's shadow) so that area can continue it
-      const patch = Math.max(8, Math.round(box.w * 0.04));
-      const st = await sharp(join(raw, files[0])).extract({ left: 0, top: box.h - patch, width: patch, height: patch }).stats();
-      bgBottom = "#" + st.channels.slice(0, 3).map((c) => Math.round(c.mean).toString(16).padStart(2, "0")).join("");
-    }
+    // Backdrop colours, sampled from the first frame. (sharp's stats() ignores extract(), so cut each patch out to its own image first.)
+    const first = join(raw, files[0]);
+    const patchSize = Math.max(8, Math.round(box.w * 0.03));
+    const meanAt = async (l, t) => {
+      const buf = await sharp(first).extract({ left: l, top: t, width: patchSize, height: patchSize }).toBuffer();
+      const st = await sharp(buf).stats();
+      return st.channels.slice(0, 3).map((c) => c.mean);
+    };
+    const hex = (rgb) => "#" + rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+    const L = 0, T = 0, R = box.w - patchSize, B = box.h - patchSize, CX = Math.round((box.w - patchSize) / 2), CY = Math.round((box.h - patchSize) / 2);
+    const tl = await meanAt(L, T), tr = await meanAt(R, T), bl = await meanAt(L, B), br = await meanAt(R, B);
+    const edges = [tl, tr, bl, br, await meanAt(CX, T), await meanAt(CX, B), await meanAt(L, CY), await meanAt(R, CY)];
+    const avg = [0, 1, 2].map((i) => edges.reduce((a, c) => a + c[i], 0) / edges.length);
+    const corners = { tl: hex(tl), tr: hex(tr), bl: hex(bl), br: hex(br) };
+    if (name === "desktop") bg = hex(avg);
+    if (name === "phone") bgBottom = hex(await meanAt(L, B)); // bottom-left, clear of the glass's shadow: the text area below the phone picture continues this colour
 
     const dir = join(out, name);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
     let bytes = 0;
+    // the soft edge: an alpha mask the same for every frame, so the picture melts into the page colour when the camera pulls back
+    const feather = Math.round(featherFrac * Math.min(box.w, box.h));
+    const mask = Buffer.alloc(box.w * box.h);
+    for (let y = 0; y < box.h; y++) for (let x = 0; x < box.w; x++) mask[y * box.w + x] = Math.round(255 * edgeAlpha(x, y, box.w, box.h, feather));
     for (let i = 0; i < files.length; i++) {
       const dest = join(dir, `${String(i + 1).padStart(4, "0")}.webp`);
-      await sharp(join(raw, files[i])).webp({ quality, effort: 4 }).toFile(dest);
+      const rgb = await sharp(join(raw, files[i])).removeAlpha().toBuffer();
+      await sharp(rgb).joinChannel(mask, { raw: { width: box.w, height: box.h, channels: 1 } }).webp({ quality, alphaQuality: 85, effort: 4 }).toFile(dest);
       bytes += statSync(dest).size;
     }
-    sizes[name] = { w: box.w, h: box.h, dir: name, megabytes: Math.round(bytes / 1e5) / 10 };
+    sizes[name] = { w: box.w, h: box.h, dir: name, corners, megabytes: Math.round(bytes / 1e5) / 10 };
     console.log(`${name}: ${files.length} frames, ${box.w}x${box.h}, ${sizes[name].megabytes} MB`);
     rmSync(raw, { recursive: true, force: true });
   }

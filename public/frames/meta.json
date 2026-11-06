@@ -1,19 +1,31 @@
 {
   "count": 260,
-  "bg": "#c9c4bc",
-  "bgBottom": "#c9c6be",
+  "bg": "#c7c3ba",
+  "bgBottom": "#d8d4cf",
   "ext": "webp",
   "sourceSeconds": 32.5,
   "desktop": {
     "w": 974,
     "h": 678,
     "dir": "desktop",
-    "megabytes": 3.3
+    "corners": {
+      "tl": "#c5c1b7",
+      "tr": "#aea9a0",
+      "bl": "#d9d6d0",
+      "br": "#c8c4bd"
+    },
+    "megabytes": 3.5
   },
   "phone": {
     "w": 508,
     "h": 678,
     "dir": "phone",
-    "megabytes": 2.8
+    "corners": {
+      "tl": "#c5beb6",
+      "tr": "#b8b2a8",
+      "bl": "#d8d4cf",
+      "br": "#cfcac8"
+    },
+    "megabytes": 3
   }
 }

@@ -83,7 +83,7 @@ export function parseStory(raw: unknown): Story | null {
     if (typeof id !== "string" || typeof scroll !== "number" || typeof video !== "number") return null;
     if (view !== undefined) {
       const ok = (n: unknown, lo: number, hi: number): boolean => typeof n === "number" && n >= lo && n <= hi;
-      if (!view || !ok(view.zoom, 1, 3) || !ok(view.x, 0, 1) || !ok(view.y, 0, 1)) return null;
+      if (!view || !ok(view.zoom, 0.5, 3) || !ok(view.x, 0, 1) || !ok(view.y, 0, 1)) return null;
     }
     chapters.push(view ? { id, scroll, video, view } : { id, scroll, video });
   }

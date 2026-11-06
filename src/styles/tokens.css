@@ -4,6 +4,7 @@
   --surface: #e1dfd9;
   --ink: #38450f;
   --muted: #5d683a;
+  --ink-deep: #2c380b; /* for small text that can land on the darkest corner of the video's backdrop (5.4:1 there) */
   --accent: #38450f;
   --accent-ink: #ecebe7;
   --matcha: #8fae4a; /* graphic use only (drink, the active-step dot): 1.9:1 on the surface, never text */

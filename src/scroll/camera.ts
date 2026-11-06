@@ -34,6 +34,41 @@ export function cameraRect(frameW: number, frameH: number, viewW: number, viewH:
   return { sx, sy, sw, sh };
 }
 
+/** How far the camera may pull back (below 1, the picture no longer covers the view and the page colour shows around it). */
+export const MIN_ZOOM = 0.5;
+
+/** Where to take a piece of the frame from and where to put it in the view. */
+export interface Placement {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  dx: number;
+  dy: number;
+  dw: number;
+  dh: number;
+}
+
+/**
+ * Like cameraRect, but the camera may also pull back past the edge of the frame (zoom below 1): the frame is then shown smaller, centred,
+ * with the page colour around it (its soft edges melt into that colour). From zoom 1 up it behaves like cameraRect and fills the view.
+ */
+export function cameraPlacement(frameW: number, frameH: number, viewW: number, viewH: number, zoom: number, fx: number, fy: number, maxScale = Infinity): Placement {
+  const cover = Math.max(viewW / frameW, viewH / frameH);
+  const z = zoom >= 1 ? Math.max(1, Math.min(zoom, maxScale / cover)) : Math.max(MIN_ZOOM, zoom);
+  const scale = cover * z;
+  const vw = viewW / scale; // how much of the frame, in frame pixels, the view spans
+  const vh = viewH / scale;
+  const start = (frame: number, span: number, f: number): number => (span >= frame ? (frame - span) / 2 : Math.max(0, Math.min(frame - span, f * frame - span / 2)));
+  const x0 = start(frameW, vw, fx);
+  const y0 = start(frameH, vh, fy);
+  const ix0 = Math.max(0, x0);
+  const iy0 = Math.max(0, y0);
+  const ix1 = Math.min(frameW, x0 + vw);
+  const iy1 = Math.min(frameH, y0 + vh);
+  return { sx: ix0, sy: iy0, sw: ix1 - ix0, sh: iy1 - iy0, dx: (ix0 - x0) * scale, dy: (iy0 - y0) * scale, dw: (ix1 - ix0) * scale, dh: (iy1 - iy0) * scale };
+}
+
 const viewOf = (c: { view?: View }): View => c.view ?? WIDE_VIEW;
 
 /** The camera at a scroll progress: a smooth path through each chapter's view, easing in and out at every one. */

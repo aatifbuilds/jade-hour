@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type Story, defaultStory, parseStory } from "./beats";
-import { WIDE_VIEW, cameraRect, storyView } from "./camera";
+import { MIN_ZOOM, WIDE_VIEW, cameraPlacement, cameraRect, storyView } from "./camera";
 
 describe("cameraRect", () => {
   it("at zoom 1 is a plain cover fit: the whole frame on one axis, centred trim on the other", () => {
@@ -82,7 +82,7 @@ describe("storyView", () => {
     let last = storyView(0, story).zoom;
     for (let p = 0; p <= 1; p += 0.002) {
       const v = storyView(p, story);
-      expect(v.zoom).toBeGreaterThanOrEqual(1 - 1e-9);
+      expect(v.zoom).toBeGreaterThanOrEqual(1 - 1e-9); // this story never pulls back past the frame
       expect(v.zoom).toBeLessThanOrEqual(1.5 + 1e-9);
       expect(Math.abs(v.zoom - last)).toBeLessThan(0.02); // no sudden jump from one step to the next
       last = v.zoom;
@@ -108,10 +108,67 @@ describe("parseStory with views", () => {
 
   it("rejects out-of-range or malformed views", () => {
     const bad = (view: unknown): unknown => ({ chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 0.5, video: 0.5, view }] });
-    expect(parseStory(bad({ zoom: 0.5, x: 0.5, y: 0.5 }))).toBeNull();
+    expect(parseStory(bad({ zoom: 0.4, x: 0.5, y: 0.5 }))).toBeNull();
     expect(parseStory(bad({ zoom: 5, x: 0.5, y: 0.5 }))).toBeNull();
     expect(parseStory(bad({ zoom: 1.2, x: 2, y: 0.5 }))).toBeNull();
     expect(parseStory(bad({ zoom: "1.2", x: 0.5, y: 0.5 }))).toBeNull();
     expect(parseStory(bad(null))).toBeNull();
+  });
+});
+
+describe("cameraPlacement", () => {
+  it("from zoom 1 up, fills the whole view with the same part of the frame as cameraRect", () => {
+    for (const z of [1, 1.3, 2]) {
+      const p = cameraPlacement(974, 678, 1440, 900, z, 0.5, 0.4);
+      const r = cameraRect(974, 678, 1440, 900, z, 0.5, 0.4);
+      const want = { sx: r.sx, sy: r.sy, sw: r.sw, sh: r.sh, dx: 0, dy: 0, dw: 1440, dh: 900 };
+      for (const k of Object.keys(want) as (keyof typeof want)[]) expect(p[k]).toBeCloseTo(want[k], 6);
+    }
+  });
+
+  it("pulling back shows the whole frame, smaller, centred, with the page colour around it", () => {
+    const p = cameraPlacement(974, 678, 1440, 900, 0.7, 0.5, 0.5);
+    expect(p.sx).toBeCloseTo(0, 9);
+    expect(p.sy).toBeCloseTo(0, 9);
+    expect(p.sw).toBeCloseTo(974, 9);
+    expect(p.sh).toBeCloseTo(678, 9);
+    expect(p.dw).toBeLessThan(1440);
+    expect(p.dh).toBeLessThan(900);
+    expect(p.dx).toBeCloseTo(1440 - (p.dx + p.dw), 9); // equal margins left and right
+    expect(p.dy).toBeCloseTo(900 - (p.dy + p.dh), 9); // and top and bottom
+    expect(p.dw / p.dh).toBeCloseTo(974 / 678, 9); // the picture keeps its shape
+  });
+
+  it("makes the glass smaller the further it pulls back", () => {
+    const a = cameraPlacement(974, 678, 1440, 900, 1, 0.5, 0.5);
+    const b = cameraPlacement(974, 678, 1440, 900, 0.8, 0.5, 0.5);
+    const c = cameraPlacement(974, 678, 1440, 900, 0.6, 0.5, 0.5);
+    expect(b.dw / b.sw).toBeLessThan(a.dw / a.sw);
+    expect(c.dw / c.sw).toBeLessThan(b.dw / b.sw);
+  });
+
+  it("always takes from inside the frame, places inside the view, and keeps one scale on both axes", () => {
+    for (const [vw, vh] of [[1440, 900], [1920, 1080], [390, 523], [2560, 1080], [800, 1200]]) {
+      for (const zoom of [0.3, 0.5, 0.7, 0.9, 1, 1.4, 3]) {
+        for (const [fx, fy] of [[0, 0], [1, 1], [0.5, 0.5], [0.9, 0.1]]) {
+          const p = cameraPlacement(974, 678, vw, vh, zoom, fx, fy, 2.6);
+          expect(p.sx).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.sy).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.sx + p.sw).toBeLessThanOrEqual(974 + 1e-9);
+          expect(p.sy + p.sh).toBeLessThanOrEqual(678 + 1e-9);
+          expect(p.dx).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.dy).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.dx + p.dw).toBeLessThanOrEqual(vw + 1e-6);
+          expect(p.dy + p.dh).toBeLessThanOrEqual(vh + 1e-6);
+          expect(p.dw / p.sw).toBeCloseTo(p.dh / p.sh, 6);
+        }
+      }
+    }
+  });
+
+  it("limits how far it pulls back", () => {
+    const far = cameraPlacement(974, 678, 1440, 900, 0.01, 0.5, 0.5);
+    const limit = cameraPlacement(974, 678, 1440, 900, MIN_ZOOM, 0.5, 0.5);
+    expect(far).toEqual(limit);
   });
 });

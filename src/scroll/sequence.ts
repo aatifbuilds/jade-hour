@@ -18,11 +18,15 @@ export const NOT_LOADED = 0;
 export const LOADING = 1;
 export const LOADED = 2;
 
-/** The frame to download next: the nearest one to `center` that is not loaded or loading (the one ahead wins a tie). -1 when all are done. */
-export function nextToLoad(center: number, state: ArrayLike<number>): number {
+/**
+ * The frame to download next: the nearest one to `center` that is not loaded or loading (the one ahead wins a tie), looking no further
+ * than `radius` frames away. -1 when there is nothing left to fetch in that range.
+ */
+export function nextToLoad(center: number, state: ArrayLike<number>, radius = Infinity): number {
   const n = state.length;
   const c = Math.max(0, Math.min(n - 1, Math.round(center)));
-  for (let d = 0; d < n; d++) {
+  const reach = Math.min(n - 1, radius);
+  for (let d = 0; d <= reach; d++) {
     if (c + d < n && state[c + d] === NOT_LOADED) return c + d;
     if (d > 0 && c - d >= 0 && state[c - d] === NOT_LOADED) return c - d;
   }
@@ -107,4 +111,25 @@ export function centerBox(box: Rect, aspectW: number, aspectH: number): Rect {
   w = Math.min(w, box.w);
   h = Math.min(h, box.h);
   return { x: box.x + evenOffset((box.w - w) / 2), y: box.y + evenOffset((box.h - h) / 2), w, h };
+}
+
+/**
+ * How opaque a frame is at pixel (x, y) of a w x h picture when its edges fade out over `feather` pixels (0 at the very edge, 1 from
+ * `feather` pixels in), with a smooth ramp. Frames are saved with this fade so that, when the camera pulls back past the edge of the
+ * picture, the picture melts into the page colour instead of ending in a visible rectangle.
+ */
+export function edgeAlpha(x: number, y: number, w: number, h: number, feather: number): number {
+  if (feather <= 0) return 1;
+  const d = Math.min(x + 0.5, w - x - 0.5, y + 0.5, h - y - 0.5);
+  const t = Math.max(0, Math.min(1, d / feather));
+  return t * t * (3 - 2 * t);
+}
+
+/** Which loaded frames to let go of so that no more than `keep` stay in memory: the ones farthest from `center` (decoded pictures are big). */
+export function framesToEvict(center: number, state: ArrayLike<number>, keep: number): number[] {
+  const loaded: number[] = [];
+  for (let i = 0; i < state.length; i++) if (state[i] === LOADED) loaded.push(i);
+  if (loaded.length <= keep) return [];
+  loaded.sort((a, b) => Math.abs(b - center) - Math.abs(a - center) || b - a);
+  return loaded.slice(0, loaded.length - keep);
 }
