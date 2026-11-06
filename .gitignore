@@ -14,3 +14,6 @@ dist/
 docs/reference/
 
 .DS_Store
+
+# the source video for the drink (large): the frames made from it are what the page uses
+docs/source-video/

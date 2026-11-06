@@ -4,7 +4,10 @@ import "./styles/tokens.css";
 import "./styles/layout.css";
 import { createStage } from "./scene/stage";
 import { adaptQuality, type Quality } from "./scene/quality";
+import { createSequence, loadSequenceMeta } from "./scene/sequence";
+import { videoProgressAt } from "./scroll/beats";
 import { CHAPTERS, drinkAt } from "./scroll/drink";
+import { stepSpring } from "./scroll/spring";
 import { COPY } from "./ui/copy";
 
 const STORY_SCREENS = 9; // the chapters fill 9 screens of scrolling (see .chapter in layout.css)
@@ -23,16 +26,36 @@ for (const c of CHAPTERS) {
 }
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
-const stage = createStage(canvas);
-new ResizeObserver(() => stage.resize()).observe(canvas);
+const base = import.meta.env.BASE_URL;
+
+/** What the page draws into the stage: the video frames if they have been made, otherwise the live 3D drink. */
+interface Drawer {
+  resize(): void;
+  setPixelRatioCap(cap: number): void;
+  maxPixelRatio: number;
+  draw(scrollProgress: number, timeSec: number): void;
+}
+function makeDrawer(): Drawer | Promise<Drawer> {
+  return loadSequenceMeta(base).then((meta): Drawer => {
+    if (meta) {
+      canvas.style.background = meta.bg; // match the video's backdrop exactly: no seam
+      const seq = createSequence(canvas, meta, base);
+      return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p) => seq.render(videoProgressAt(p)) };
+    }
+    const stage = createStage(canvas);
+    return { resize: stage.resize, setPixelRatioCap: stage.setPixelRatioCap, maxPixelRatio: stage.maxPixelRatio, draw: (p, t) => stage.render(drinkAt(p), t) };
+  });
+}
+const drawer = await makeDrawer();
+new ResizeObserver(() => drawer.resize()).observe(canvas);
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 const rawProgress = (): number => clamp01((window.scrollY - story.offsetTop) / ((story.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS));
 
-let progress = rawProgress(); // smoothed: eases towards the real scroll position so quick flicks do not jerk the drink
-let target = progress;
+// the scroll position is smoothed by a critically damped spring: quick flicks glide instead of jerking, and nothing overshoots
+let spring = { x: rawProgress(), v: 0 };
 let frameMs = 16.7;
-let quality: Quality = { cap: stage.maxPixelRatio, goodChecks: 0 };
+let quality: Quality = { cap: drawer.maxPixelRatio, goodChecks: 0 };
 let frames = 0;
 let last = performance.now();
 
@@ -40,14 +63,13 @@ function frame(now: number): void {
   const dt = Math.min(0.05, (now - last) / 1000);
   frameMs += ((now - last) - frameMs) * 0.05;
   last = now;
-  target = rawProgress();
-  progress += (target - progress) * (1 - Math.exp(-dt * 9));
+  spring = stepSpring(spring, rawProgress(), 9, dt);
   if (++frames % 30 === 0) {
-    const next = adaptQuality(quality, frameMs, stage.maxPixelRatio);
-    if (next.cap !== quality.cap) stage.setPixelRatioCap(next.cap);
+    const next = adaptQuality(quality, frameMs, drawer.maxPixelRatio);
+    if (next.cap !== quality.cap) drawer.setPixelRatioCap(next.cap);
     quality = next;
   }
-  stage.render(drinkAt(progress), now / 1000);
+  drawer.draw(clamp01(spring.x), now / 1000);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -56,8 +78,8 @@ if (import.meta.env.DEV) {
   // test hook, stripped from production builds: jump to a scroll progress and read the state
   Object.assign(window, {
     __story: {
-      set(p: number) { target = p; progress = p; window.scrollTo(0, story.offsetTop + p * (story.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS); },
-      get progress() { return progress; },
+      set(p: number) { spring = { x: p, v: 0 }; window.scrollTo(0, story.offsetTop + p * (story.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS); },
+      get progress() { return spring.x; },
       get frameMs() { return frameMs; },
       get pixelRatioCap() { return quality.cap; },
     },
