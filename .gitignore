@@ -1,0 +1,16 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# secrets (never commit)
+.env*
+
+# browser and design tools save screenshots and dumps here
+.playwright-cli/
+.taste-skill/
+.impeccable/
+
+# reference stills taken from a third-party reel: for side-by-side checks only, never committed or shipped
+docs/reference/
+
+.DS_Store
