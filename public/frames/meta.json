@@ -1,0 +1,22 @@
+{
+  "count": 180,
+  "aspect": [
+    4,
+    5
+  ],
+  "bg": "#cac6be",
+  "ext": "webp",
+  "sourceSeconds": 14.9,
+  "desktop": {
+    "w": 1080,
+    "h": 1350,
+    "dir": "desktop",
+    "megabytes": 3.4
+  },
+  "phone": {
+    "w": 720,
+    "h": 900,
+    "dir": "phone",
+    "megabytes": 2
+  }
+}

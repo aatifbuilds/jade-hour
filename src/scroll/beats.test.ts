@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VIDEO_AT_BOUNDARY, chapterBoundaries, monotoneCubic, videoProgressAt } from "./beats";
+import { VIDEO_AT_BOUNDARY, chapterBoundaries, defaultStory, monotoneCubic, parseStory, storyRanges, storyVideoProgress, videoProgressAt } from "./beats";
 import { CHAPTERS } from "./drink";
 
 describe("monotoneCubic", () => {
@@ -64,6 +64,51 @@ describe("video beats", () => {
       const v = videoProgressAt(p, marks);
       expect(v).toBeGreaterThanOrEqual(last - 1e-9);
       expect(v).toBeLessThanOrEqual(1 + 1e-9);
+      last = v;
+    }
+  });
+});
+
+describe("story", () => {
+  const five = { chapters: [{ id: "glass", scroll: 0, video: 0 }, { id: "ice", scroll: 0.1, video: 0.08 }, { id: "milk", scroll: 0.34, video: 0.36 }, { id: "matcha", scroll: 0.54, video: 0.54 }, { id: "final", scroll: 0.84, video: 0.84 }] };
+
+  it("the default story matches the eight chapters and the old beat marks", () => {
+    const d = defaultStory();
+    expect(d.chapters.map((c) => c.id)).toEqual(CHAPTERS.map((c) => c.id));
+    d.chapters.forEach((c, i) => {
+      expect(c.scroll).toBe(CHAPTERS[i].from);
+      expect(c.video).toBe(VIDEO_AT_BOUNDARY[i]);
+    });
+    expect(storyVideoProgress(0.37, d)).toBeCloseTo(videoProgressAt(0.37), 12);
+  });
+
+  it("accepts a good story and gives each chapter its stretch of scroll up to the next one", () => {
+    expect(parseStory(five)).toEqual(five);
+    const r = storyRanges(five);
+    expect(r[0]).toEqual({ id: "glass", from: 0, to: 0.1 });
+    expect(r[4]).toEqual({ id: "final", from: 0.84, to: 1 });
+    for (let i = 1; i < r.length; i++) expect(r[i].from).toBe(r[i - 1].to);
+  });
+
+  it("rejects stories that are missing, too short, or out of order", () => {
+    expect(parseStory(null)).toBeNull();
+    expect(parseStory({})).toBeNull();
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0, video: 0 }] })).toBeNull();
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0.1, video: 0 }, { id: "b", scroll: 0.5, video: 0.5 }] })).toBeNull(); // must start at 0
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 0.5, video: 0.5 }, { id: "c", scroll: 0.4, video: 0.6 }] })).toBeNull(); // scroll going back
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 0.5, video: 0.6 }, { id: "c", scroll: 0.7, video: 0.4 }] })).toBeNull(); // video going back
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 1, video: 0.5 }] })).toBeNull(); // a chapter that starts at the very end
+    expect(parseStory({ chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: "0.5", video: 0.5 }] })).toBeNull();
+  });
+
+  it("scrubs the video from its first frame to its last, never backwards, landing each chapter on its mark", () => {
+    expect(storyVideoProgress(0, five)).toBeCloseTo(0, 9);
+    expect(storyVideoProgress(1, five)).toBeCloseTo(1, 9);
+    five.chapters.forEach((c) => expect(storyVideoProgress(c.scroll, five)).toBeCloseTo(c.video, 9));
+    let last = 0;
+    for (let p = 0; p <= 1; p += 0.002) {
+      const v = storyVideoProgress(p, five);
+      expect(v).toBeGreaterThanOrEqual(last - 1e-9);
       last = v;
     }
   });

@@ -56,3 +56,46 @@ export function chapterBoundaries(): number[] {
 export function videoProgressAt(p: number, marks: number[] = VIDEO_AT_BOUNDARY): number {
   return monotoneCubic(chapterBoundaries(), marks)(p);
 }
+
+/** One chapter of the story as the video tells it: where it starts on the page (0..1) and where it starts in the video (0..1). */
+export interface StoryChapter {
+  id: string;
+  scroll: number;
+  video: number;
+}
+export interface Story {
+  chapters: StoryChapter[];
+}
+
+/** The full eight-chapter story with the video paced like the scroll (used by the 3D drink, and until the video is tuned). */
+export function defaultStory(): Story {
+  return { chapters: CHAPTERS.map((c, i) => ({ id: c.id, scroll: c.from, video: VIDEO_AT_BOUNDARY[i] })) };
+}
+
+/** Reads and checks a story file (frames/story.json). Returns null if it is missing or malformed, so the caller can fall back. */
+export function parseStory(raw: unknown): Story | null {
+  const list = (raw as { chapters?: unknown } | null)?.chapters;
+  if (!Array.isArray(list) || list.length < 2) return null;
+  const chapters: StoryChapter[] = [];
+  for (const c of list) {
+    const { id, scroll, video } = (c ?? {}) as Partial<StoryChapter>;
+    if (typeof id !== "string" || typeof scroll !== "number" || typeof video !== "number") return null;
+    chapters.push({ id, scroll, video });
+  }
+  if (chapters[0].scroll !== 0 || chapters[0].video !== 0) return null;
+  for (let i = 1; i < chapters.length; i++) {
+    if (!(chapters[i].scroll > chapters[i - 1].scroll) || chapters[i].scroll >= 1) return null;
+    if (chapters[i].video < chapters[i - 1].video || chapters[i].video > 1) return null;
+  }
+  return { chapters };
+}
+
+/** Each chapter's stretch of scroll: from its start to the next chapter's start (the last runs to 1). */
+export function storyRanges(story: Story): { id: string; from: number; to: number }[] {
+  return story.chapters.map((c, i) => ({ id: c.id, from: c.scroll, to: i + 1 < story.chapters.length ? story.chapters[i + 1].scroll : 1 }));
+}
+
+/** Share of the video (0..1) to show at a scroll progress (0..1), for a given story. */
+export function storyVideoProgress(p: number, story: Story): number {
+  return monotoneCubic([...story.chapters.map((c) => c.scroll), 1], [...story.chapters.map((c) => c.video), 1])(p);
+}

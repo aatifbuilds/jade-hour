@@ -1,0 +1,29 @@
+{
+  "chapters": [
+    {
+      "id": "glass",
+      "scroll": 0,
+      "video": 0
+    },
+    {
+      "id": "ice",
+      "scroll": 0.1,
+      "video": 0.0805
+    },
+    {
+      "id": "milk",
+      "scroll": 0.34,
+      "video": 0.3557
+    },
+    {
+      "id": "matcha",
+      "scroll": 0.54,
+      "video": 0.5436
+    },
+    {
+      "id": "final",
+      "scroll": 0.84,
+      "video": 0.8389
+    }
+  ]
+}

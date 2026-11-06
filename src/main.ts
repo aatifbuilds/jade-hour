@@ -5,16 +5,34 @@ import "./styles/layout.css";
 import { createStage } from "./scene/stage";
 import { adaptQuality, type Quality } from "./scene/quality";
 import { createSequence, loadSequenceMeta } from "./scene/sequence";
-import { videoProgressAt } from "./scroll/beats";
-import { CHAPTERS, drinkAt } from "./scroll/drink";
+import { defaultStory, parseStory, storyRanges, storyVideoProgress, type Story } from "./scroll/beats";
+import { drinkAt } from "./scroll/drink";
 import { stepSpring } from "./scroll/spring";
 import { COPY } from "./ui/copy";
 
 const STORY_SCREENS = 9; // the chapters fill 9 screens of scrolling (see .chapter in layout.css)
 
-// build the chapter text blocks from the same list that drives the drink, so the two can never disagree
-const story = document.getElementById("story")!;
-for (const c of CHAPTERS) {
+const canvas = document.getElementById("stage") as HTMLCanvasElement;
+const base = import.meta.env.BASE_URL;
+
+// the video (if it has been made) says which chapters it tells and where each begins; otherwise the full recipe is used
+const seqMeta = await loadSequenceMeta(base);
+async function loadStory(): Promise<Story> {
+  if (!seqMeta) return defaultStory();
+  try {
+    const res = await fetch(`${base}frames/story.json`, { cache: "no-cache" });
+    const parsed = res.ok ? parseStory(await res.json()) : null;
+    if (parsed && parsed.chapters.every((c) => COPY[c.id])) return parsed;
+  } catch {
+    /* no story file: use the full recipe */
+  }
+  return defaultStory();
+}
+const story = await loadStory();
+
+// build the chapter text blocks from the same story that drives the picture, so the two can never disagree
+const storyEl = document.getElementById("story")!;
+for (const c of storyRanges(story)) {
   const copy = COPY[c.id];
   const sec = document.createElement("section");
   sec.className = "chapter";
@@ -22,11 +40,8 @@ for (const c of CHAPTERS) {
   sec.style.setProperty("--span", String(c.to - c.from));
   const head = c.id === "glass" ? `<h1>${copy.title}</h1>` : `<h2>${copy.title}</h2>`;
   sec.innerHTML = `<div class="chapter__text">${head}<p class="${c.id === "glass" ? "lead" : ""}">${copy.line}</p></div>`;
-  story.append(sec);
+  storyEl.append(sec);
 }
-
-const canvas = document.getElementById("stage") as HTMLCanvasElement;
-const base = import.meta.env.BASE_URL;
 
 /** What the page draws into the stage: the video frames if they have been made, otherwise the live 3D drink. */
 interface Drawer {
@@ -35,22 +50,20 @@ interface Drawer {
   maxPixelRatio: number;
   draw(scrollProgress: number, timeSec: number): void;
 }
-function makeDrawer(): Drawer | Promise<Drawer> {
-  return loadSequenceMeta(base).then((meta): Drawer => {
-    if (meta) {
-      canvas.style.background = meta.bg; // match the video's backdrop exactly: no seam
-      const seq = createSequence(canvas, meta, base);
-      return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p) => seq.render(videoProgressAt(p)) };
-    }
-    const stage = createStage(canvas);
-    return { resize: stage.resize, setPixelRatioCap: stage.setPixelRatioCap, maxPixelRatio: stage.maxPixelRatio, draw: (p, t) => stage.render(drinkAt(p), t) };
-  });
+function makeDrawer(): Drawer {
+  if (seqMeta) {
+    canvas.style.background = seqMeta.bg; // match the video's backdrop exactly: no seam
+    const seq = createSequence(canvas, seqMeta, base);
+    return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p) => seq.render(storyVideoProgress(p, story)) };
+  }
+  const stage = createStage(canvas);
+  return { resize: stage.resize, setPixelRatioCap: stage.setPixelRatioCap, maxPixelRatio: stage.maxPixelRatio, draw: (p, t) => stage.render(drinkAt(p), t) };
 }
-const drawer = await makeDrawer();
+const drawer = makeDrawer();
 new ResizeObserver(() => drawer.resize()).observe(canvas);
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
-const rawProgress = (): number => clamp01((window.scrollY - story.offsetTop) / ((story.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS));
+const rawProgress = (): number => clamp01((window.scrollY - storyEl.offsetTop) / ((storyEl.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS));
 
 // the scroll position is smoothed by a critically damped spring: quick flicks glide instead of jerking, and nothing overshoots
 let spring = { x: rawProgress(), v: 0 };
@@ -78,7 +91,7 @@ if (import.meta.env.DEV) {
   // test hook, stripped from production builds: jump to a scroll progress and read the state
   Object.assign(window, {
     __story: {
-      set(p: number) { spring = { x: p, v: 0 }; window.scrollTo(0, story.offsetTop + p * (story.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS); },
+      set(p: number) { spring = { x: p, v: 0 }; window.scrollTo(0, storyEl.offsetTop + p * (storyEl.offsetHeight / (STORY_SCREENS + 1)) * STORY_SCREENS); },
       get progress() { return spring.x; },
       get frameMs() { return frameMs; },
       get pixelRatioCap() { return quality.cap; },
