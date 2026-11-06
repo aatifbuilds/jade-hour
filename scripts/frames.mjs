@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Turns the drink video into the frame sequence the page scrubs as you scroll.
 
-   node scripts/frames.mjs --in docs/source-video/jade-hour.mp4 [--frames 180] [--out public/frames] [--crop-y 0.5] [--quality 78]
+   node scripts/frames.mjs --in docs/source-video/jade-hour.mp4 [--frames 180] [--out public/frames] [--crop-y 0.5] [--zoom 1] [--quality 78]
 
    It cuts a 4:5 box out of the video (the stage is portrait), samples `--frames` frames evenly whatever the video's length,
    writes them as WebP at two sizes (desktop and phone), and writes meta.json, including the backdrop colour sampled from the
@@ -19,7 +19,7 @@ const opt = (name, fallback) => {
   return i >= 0 && i + 1 < args.length ? args[i + 1] : fallback;
 };
 if (args.includes("--help") || !opt("in")) {
-  console.log("usage: node scripts/frames.mjs --in <video> [--frames 180] [--out public/frames] [--crop-y 0.5] [--quality 78]");
+  console.log("usage: node scripts/frames.mjs --in <video> [--frames 180] [--out public/frames] [--crop-y 0.5] [--zoom 1] [--quality 78]");
   process.exit(opt("in") ? 0 : 1);
 }
 
@@ -27,6 +27,7 @@ const input = resolve(opt("in"));
 const out = resolve(opt("out", "public/frames"));
 const count = Number(opt("frames", "180"));
 const cropY = Number(opt("crop-y", "0.5"));
+const zoom = Number(opt("zoom", "1")); // 0.94 cuts in 6% (trims an unwanted strip when combined with --crop-y)
 const quality = Number(opt("quality", "78"));
 const ASPECT = [4, 5];
 const VARIANTS = [
@@ -45,7 +46,7 @@ try {
   const probe = join(tmp, "probe.png");
   run("ffmpeg", ["-v", "error", "-y", "-i", input, "-frames:v", "1", probe]);
   const meta0 = await sharp(probe).metadata();
-  const box = cropBox(meta0.width, meta0.height, ASPECT[0], ASPECT[1], cropY);
+  const box = cropBox(meta0.width, meta0.height, ASPECT[0], ASPECT[1], cropY, zoom);
   console.log(`video ${meta0.width}x${meta0.height}, ${duration.toFixed(1)} s; cutting a ${box.w}x${box.h} box at y=${box.y}; sampling ${count} frames`);
 
   const raw = join(tmp, "raw");

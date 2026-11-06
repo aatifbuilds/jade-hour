@@ -3,27 +3,32 @@
     {
       "id": "glass",
       "scroll": 0,
-      "video": 0
+      "video": 0.0
     },
     {
       "id": "ice",
-      "scroll": 0.1,
-      "video": 0.0805
+      "scroll": 0.08,
+      "video": 0.0532
     },
     {
       "id": "milk",
-      "scroll": 0.34,
-      "video": 0.3557
+      "scroll": 0.26,
+      "video": 0.235
     },
     {
       "id": "matcha",
-      "scroll": 0.54,
-      "video": 0.5436
+      "scroll": 0.42,
+      "video": 0.3592
+    },
+    {
+      "id": "blend",
+      "scroll": 0.64,
+      "video": 0.6386
     },
     {
       "id": "final",
-      "scroll": 0.84,
-      "video": 0.8389
+      "scroll": 0.88,
+      "video": 0.9047
     }
   ]
 }

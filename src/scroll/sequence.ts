@@ -60,16 +60,18 @@ const evenOffset = (n: number): number => Math.max(0, Math.floor(n / 2) * 2); //
 
 /**
  * The biggest box of the given aspect ratio that fits in a src-sized video, for cutting frames. `cropY` says where the box sits
- * vertically when the video is taller than it needs to be (0 top, 0.5 middle, 1 bottom). All sizes are even (video codecs need that).
+ * vertically when the video is taller than it needs to be (0 top, 0.5 middle, 1 bottom). `zoom` (0.5 to 1) shrinks the box to
+ * that share of the biggest one, to cut in on the subject or trim an unwanted edge. All sizes are even (video codecs need that).
  */
-export function cropBox(srcW: number, srcH: number, aspectW: number, aspectH: number, cropY = 0.5): Rect {
+export function cropBox(srcW: number, srcH: number, aspectW: number, aspectH: number, cropY = 0.5, zoom = 1): Rect {
   const target = aspectW / aspectH;
   let w = srcW;
   let h = srcH;
   if (srcW / srcH > target) w = even(srcH * target);
   else h = even(srcW / target);
-  w = Math.min(even(w), even(srcW));
-  h = Math.min(even(h), even(srcH));
+  const z = Math.max(0.5, Math.min(1, zoom));
+  w = Math.min(even(w * z), even(srcW));
+  h = Math.min(even(h * z), even(srcH));
   const x = evenOffset((srcW - w) / 2);
   const y = evenOffset((srcH - h) * Math.max(0, Math.min(1, cropY)));
   return { x: Math.min(x, srcW - w), y: Math.min(y, srcH - h), w, h };

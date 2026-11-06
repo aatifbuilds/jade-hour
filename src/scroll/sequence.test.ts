@@ -131,6 +131,19 @@ describe("cropBox", () => {
     expect(r.x).toBe(528);
   });
 
+  it("can zoom in by shrinking the box, keeping its shape and anchoring it where asked", () => {
+    const full = cropBox(1280, 720, 4, 5, 1);
+    const z = cropBox(1280, 720, 4, 5, 1, 0.94);
+    expect(z.w).toBeLessThan(full.w);
+    expect(z.h).toBeLessThan(full.h);
+    expect(z.w / z.h).toBeCloseTo(0.8, 1);
+    expect(z.y + z.h).toBe(720); // anchored to the bottom, so the trimmed strip comes off the top
+    expect(z.y).toBeGreaterThan(30);
+    expect(z.w % 2).toBe(0);
+    expect(z.h % 2).toBe(0);
+    expect(cropBox(1280, 720, 4, 5, 1, 7)).toEqual(full); // zoom is limited to 1
+  });
+
   it("always gives even sizes that stay inside the video", () => {
     for (const [w, h] of [[1081, 1921], [1280, 720], [720, 1280], [1000, 1001]]) {
       const r = cropBox(w, h, 4, 5);
