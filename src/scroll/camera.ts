@@ -21,11 +21,12 @@ export interface SrcRect {
 /**
  * Which part of a frame fills a view of viewW x viewH. At zoom 1 it is `object-fit: cover` (the whole frame, trimmed on one axis);
  * more zoom shows less of the frame, magnified, centred on the focus point (fx, fy). The part is always pushed back inside the frame,
- * so the edge of the picture can never show.
+ * so the edge of the picture can never show. `maxScale` caps how much the picture may be magnified (view pixels per frame pixel): a
+ * small source zoomed too far turns soft, so on a big screen the zoom stops short rather than blur.
  */
-export function cameraRect(frameW: number, frameH: number, viewW: number, viewH: number, zoom: number, fx: number, fy: number): SrcRect {
+export function cameraRect(frameW: number, frameH: number, viewW: number, viewH: number, zoom: number, fx: number, fy: number, maxScale = Infinity): SrcRect {
   const cover = Math.max(viewW / frameW, viewH / frameH);
-  const scale = cover * Math.max(1, zoom);
+  const scale = cover * Math.max(1, Math.min(zoom, maxScale / cover));
   const sw = viewW / scale;
   const sh = viewH / scale;
   const sx = Math.max(0, Math.min(frameW - sw, fx * frameW - sw / 2));

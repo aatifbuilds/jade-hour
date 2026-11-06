@@ -50,6 +50,7 @@ try {
   const sizes = {};
   let frameCount = 0;
   let bg = "#ffffff";
+  let bgBottom = "#ffffff";
   for (const [name, box] of Object.entries(boxes)) {
     const raw = join(tmp, name);
     mkdirSync(raw);
@@ -71,6 +72,13 @@ try {
       bg = "#" + sums.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
     }
 
+    if (name === "phone") {
+      // the phone cut sits above a text area: sample its bottom-left patch (clear of the glass's shadow) so that area can continue it
+      const patch = Math.max(8, Math.round(box.w * 0.04));
+      const st = await sharp(join(raw, files[0])).extract({ left: 0, top: box.h - patch, width: patch, height: patch }).stats();
+      bgBottom = "#" + st.channels.slice(0, 3).map((c) => Math.round(c.mean).toString(16).padStart(2, "0")).join("");
+    }
+
     const dir = join(out, name);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
@@ -85,7 +93,7 @@ try {
     rmSync(raw, { recursive: true, force: true });
   }
 
-  writeFileSync(join(out, "meta.json"), JSON.stringify({ count: frameCount, bg, ext: "webp", sourceSeconds: Math.round(duration * 10) / 10, desktop: sizes.desktop, phone: sizes.phone }, null, 2) + "\n");
+  writeFileSync(join(out, "meta.json"), JSON.stringify({ count: frameCount, bg, bgBottom, ext: "webp", sourceSeconds: Math.round(duration * 10) / 10, desktop: sizes.desktop, phone: sizes.phone }, null, 2) + "\n");
   console.log(`wrote ${join(out, "meta.json")}; backdrop ${bg}`);
 } finally {
   rmSync(tmp, { recursive: true, force: true });

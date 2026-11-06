@@ -39,6 +39,17 @@ describe("cameraRect", () => {
     }
   });
 
+  it("stops zooming when the picture would be magnified more than allowed, but never below the plain cover fit", () => {
+    const free = cameraRect(974, 678, 1920, 1080, 1.4, 0.5, 0.5);
+    const capped = cameraRect(974, 678, 1920, 1080, 1.4, 0.5, 0.5, 2.6);
+    expect(capped.sw).toBeGreaterThan(free.sw); // shows more of the frame
+    expect(1920 / capped.sw).toBeLessThanOrEqual(2.6 + 1e-9); // and stays within the limit
+    const tiny = cameraRect(974, 678, 1920, 1080, 1.4, 0.5, 0.5, 0.5); // a limit below the cover fit still covers the view
+    expect(tiny).toEqual(cameraRect(974, 678, 1920, 1080, 1, 0.5, 0.5));
+    const small = cameraRect(974, 678, 1440, 900, 1.4, 0.5, 0.5, 2.6); // 1440 wide is under the limit, so nothing changes
+    expect(small).toEqual(cameraRect(974, 678, 1440, 900, 1.4, 0.5, 0.5));
+  });
+
   it("treats zoom below 1 as 1, since less than the whole frame cannot cover the view", () => {
     expect(cameraRect(974, 678, 1440, 900, 0.5, 0.5, 0.5)).toEqual(cameraRect(974, 678, 1440, 900, 1, 0.5, 0.5));
   });

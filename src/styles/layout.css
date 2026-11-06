@@ -1,36 +1,66 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { background: var(--bg); }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 400 var(--step-body)/1.55 var(--text); -webkit-font-smoothing: antialiased; }
-h1, h2, p { margin: 0; }
+h1, h2, p, ul { margin: 0; }
 a { color: inherit; }
 
-.page { display: grid; grid-template-columns: 47% 53%; align-items: start; }
+/* The video is the page: one picture fills the screen and never moves; the page takes its backdrop colour, so nothing reads as a box. */
+.stage { position: fixed; inset: 0; width: 100%; height: 100svh; display: block; z-index: 0; background: var(--bg); }
 
-/* the stage never moves: the glass is always in view */
-.stage { position: sticky; top: 0; height: 100svh; padding: 20px; z-index: 2; background: var(--bg); } /* opaque, so the text scrolling behind it never shows through the gap around the picture */
-.stage canvas { display: block; width: 100%; height: 100%; background: var(--surface); }
-
-.col { padding: 32px var(--margin) 0 var(--margin); }
-.nav { display: flex; gap: 28px; justify-content: flex-end; align-items: center; font-size: 15px; }
+.top { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; padding: 24px var(--margin); pointer-events: none; }
+.top > * { pointer-events: auto; }
+.top__mark { font: 400 1.5rem/1 var(--display); letter-spacing: -0.02em; text-decoration: none; opacity: 0; transition: opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
+.is-story .top__mark { opacity: 1; }
+.nav { display: flex; gap: 28px; align-items: center; font-size: 15px; }
 .nav a { text-decoration: none; }
 .nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .nav__action { background: var(--accent); color: var(--accent-ink); padding: 10px 18px; }
 .nav__action:hover { text-decoration: none !important; opacity: 0.88; }
 
-/* the story is 10 screens tall; its first 9 are the 8 chapters, one block per stretch of the recipe */
-.story { margin-top: -56px; }
+/* the step list down the left: appears once the story starts */
+.index { position: fixed; left: var(--margin); top: 50%; transform: translateY(-50%); z-index: 3; opacity: 0; pointer-events: none; transition: opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
+.is-story .index { opacity: 1; pointer-events: auto; }
+.index ul { list-style: none; padding: 0; }
+.index li { margin: 0; }
+.index a { display: inline-block; padding: 4px 0; font: 400 clamp(1.5rem, 2.3vw, 2.2rem)/1.25 var(--display); letter-spacing: -0.01em; color: var(--muted); text-decoration: none; transition: color 0.3s cubic-bezier(0.23, 1, 0.32, 1); }
+.index a:hover { color: var(--ink); }
+.index a[aria-current="step"] { color: var(--ink); }
+.index a[aria-current="step"]::before { content: ""; display: inline-block; width: 0.42em; height: 0.42em; margin-right: 0.45em; border-radius: 50%; background: var(--ink); vertical-align: 0.1em; }
+
+/* The story is 10 screens tall; its first 9 are the chapters, one empty block per stretch of the recipe (they only give the scroll its length). */
+.story { position: relative; z-index: 2; }
 .chapter { height: calc(var(--span) * 900svh); }
-.chapter__text { position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; justify-content: center; max-width: 46ch; }
-.chapter h1 { font: 400 var(--step-name)/0.9 var(--display); letter-spacing: -0.04em; margin: 0 0 28px -0.04em; white-space: nowrap; }
-.chapter h2 { font: 400 var(--step-head)/0.95 var(--display); letter-spacing: -0.02em; margin-bottom: 24px; max-width: 12ch; }
-.chapter .lead { font-size: var(--step-lead); max-width: 26ch; }
-.chapter p { max-width: 46ch; }
-.tail { height: 100svh; }
+.tail { position: relative; z-index: 2; height: 100svh; }
+
+/* The words for the step on screen live in one fixed layer; the active step fades and rises in, the one leaving fades out quickly. */
+.copy { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+.copy__item { position: absolute; top: 50%; right: var(--margin); width: clamp(220px, 21.5vw, 330px); opacity: 0; transform: translateY(calc(-50% + 14px)); transition: opacity 0.2s ease-out, transform 0.2s ease-out; }
+.copy__item.is-active { opacity: 1; transform: translateY(-50%); transition: opacity 0.45s cubic-bezier(0.23, 1, 0.32, 1) 0.12s, transform 0.45s cubic-bezier(0.23, 1, 0.32, 1) 0.12s; pointer-events: auto; }
+.copy__item h2 { font: 400 clamp(2rem, 1.3rem + 3vw, 3.75rem)/0.98 var(--display); letter-spacing: -0.02em; margin-bottom: 20px; }
+.copy__item p { font-size: var(--step-body); max-width: 30ch; }
+
+/* the first step is the name, on the left, with the glass beside it */
+.copy__item--hero { right: auto; left: var(--margin); width: min(46vw, 560px); }
+.copy__item h1 { font: 400 clamp(4.5rem, 10.5vw, 10rem)/0.88 var(--display); letter-spacing: -0.04em; margin: 0 0 28px -0.04em; }
+.copy__item .lead { font-size: var(--step-lead); max-width: 22ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  .copy__item, .copy__item.is-active { transition: none; transform: translateY(-50%); }
+}
 
 @media (max-width: 700px) {
-  .page { display: block; }
-  .stage { height: 56svh; padding: 12px; }
-  .col { padding: 16px 20px 0; }
-  .nav { gap: 18px; }
-  .chapter__text { top: calc(56svh + 8px); height: auto; min-height: 40svh; justify-content: flex-start; padding-top: 12px; }
+  .stage { height: 62svh; }
+  .top { padding: 14px 20px; }
+  .top__mark { font-size: 1.25rem; }
+  .nav { gap: 14px; font-size: 14px; }
+  .nav a:not(.nav__action) { display: none; }
+  .index { display: none; }
+  .copy__item, .copy__item--hero { top: calc(62svh + 18px); right: 20px; left: 20px; width: auto; transform: translateY(14px); }
+  .copy__item.is-active { transform: none; }
+  .copy__item h1 { font-size: clamp(3.6rem, 19vw, 6rem); margin-bottom: 14px; }
+  .copy__item h2 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); margin-bottom: 12px; }
+}
+
+@media (max-width: 700px) and (prefers-reduced-motion: reduce) {
+  .copy__item, .copy__item.is-active { transform: none; }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VIDEO_AT_BOUNDARY, chapterBoundaries, defaultStory, monotoneCubic, parseStory, storyRanges, storyVideoProgress, videoProgressAt } from "./beats";
+import { VIDEO_AT_BOUNDARY, chapterBoundaries, defaultStory, monotoneCubic, parseStory, storyChapterAt, storyRanges, storyVideoProgress, videoProgressAt } from "./beats";
 import { CHAPTERS } from "./drink";
 
 describe("monotoneCubic", () => {
@@ -111,5 +111,23 @@ describe("story", () => {
       expect(v).toBeGreaterThanOrEqual(last - 1e-9);
       last = v;
     }
+  });
+});
+
+describe("storyChapterAt", () => {
+  const st = { chapters: [{ id: "a", scroll: 0, video: 0 }, { id: "b", scroll: 0.3, video: 0.3 }, { id: "c", scroll: 0.7, video: 0.7 }] };
+
+  it("finds the chapter whose stretch contains the progress", () => {
+    expect(storyChapterAt(0, st)).toBe(0);
+    expect(storyChapterAt(0.299, st)).toBe(0);
+    expect(storyChapterAt(0.3, st)).toBe(1);
+    expect(storyChapterAt(0.69, st)).toBe(1);
+    expect(storyChapterAt(0.7, st)).toBe(2);
+  });
+
+  it("gives the first chapter for anything before the start and the last for the very end", () => {
+    expect(storyChapterAt(-1, st)).toBe(0);
+    expect(storyChapterAt(1, st)).toBe(2);
+    expect(storyChapterAt(5, st)).toBe(2);
   });
 });

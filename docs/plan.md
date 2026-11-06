@@ -12,3 +12,6 @@ Owner: the 3D drink "looks like a kid drew it" next to the reference reel. Live 
 - **Step 1 (no video needed):** `docs/video-prompt.md` (our original brief for Flow), `scripts/frames.mjs` (video to WebP frames via ffmpeg + `meta.json` with the sampled backdrop colour), pure maths with tests (`src/scroll/sequence.ts`: frame blend, nearest-first loading, cover fit; `src/scroll/beats.ts`: scroll-to-video-time map per chapter), the player `src/scene/sequence.ts`, `main.ts` picks player or 3D. Proven end to end with a synthetic test video that is deleted afterwards.
 - **Step 2 (real video arrives):** run frames.mjs, tune beats, match colours, check the phone crop, revise the prompt if a segment drifts.
 - **Step 3:** RILL scroll engine, step index, phone layout, static fallback, polish, stress test.
+
+## Full-bleed stage and scroll zoom (7 Nov 2026): DONE
+Frames cut to the safe region; camera maths with views in `story.json`; full-bleed layout with the hero name, a step list and a fixed text layer. 96 tests. NEXT: loading state, reduced-motion still, polish and stress test, then the owner decides about going public.

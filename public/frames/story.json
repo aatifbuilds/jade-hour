@@ -3,42 +3,82 @@
     {
       "id": "glass",
       "scroll": 0,
-      "video": 0.0
+      "video": 0.0,
+      "view": {
+        "zoom": 1.0,
+        "x": 0.5,
+        "y": 0.5
+      }
     },
     {
       "id": "ice",
       "scroll": 0.08,
-      "video": 0.0369
+      "video": 0.0369,
+      "view": {
+        "zoom": 1.12,
+        "x": 0.5,
+        "y": 0.56
+      }
     },
     {
       "id": "milk",
       "scroll": 0.21,
-      "video": 0.1628
+      "video": 0.1628,
+      "view": {
+        "zoom": 1.22,
+        "x": 0.5,
+        "y": 0.58
+      }
     },
     {
       "id": "matcha",
       "scroll": 0.33,
-      "video": 0.2488
+      "video": 0.2488,
+      "view": {
+        "zoom": 1.32,
+        "x": 0.5,
+        "y": 0.5
+      }
     },
     {
       "id": "blend",
       "scroll": 0.5,
-      "video": 0.4424
+      "video": 0.4424,
+      "view": {
+        "zoom": 1.25,
+        "x": 0.5,
+        "y": 0.5
+      }
     },
     {
       "id": "foam",
       "scroll": 0.66,
-      "video": 0.6421
+      "video": 0.6421,
+      "view": {
+        "zoom": 1.4,
+        "x": 0.5,
+        "y": 0.3
+      }
     },
     {
       "id": "yuzu",
       "scroll": 0.78,
-      "video": 0.768
+      "video": 0.768,
+      "view": {
+        "zoom": 1.4,
+        "x": 0.5,
+        "y": 0.26
+      }
     },
     {
       "id": "final",
       "scroll": 0.87,
-      "video": 0.8479
+      "video": 0.8479,
+      "view": {
+        "zoom": 1.0,
+        "x": 0.5,
+        "y": 0.5
+      }
     }
   ]
 }

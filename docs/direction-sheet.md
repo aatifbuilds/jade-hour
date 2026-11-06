@@ -1,5 +1,7 @@
 # Direction sheet: matcha-page (Phase 1, for the owner's approval)
 
+> **Update 7 Nov 2026: the direction is now the FULL-BLEED STAGE.** The owner compared the page with the reference reel: in the reel the video is the whole page and the glass stands alone, with a scroll-driven zoom; our split-stage panel looked like a cutout. So the video now fills the screen, the page takes the video's backdrop colour, the hero name and a vertical step list sit on the left, the step's words on the right, and the camera zooms through the steps. Everything below about the split stage is superseded; type, colour, name and copy are unchanged.
+
 Dealt with `design-taste-frontend` (seed 1004672085, 6 Nov 2026, sector physical-product, tone editorial). Three directions were dealt (sentence-as-layout, split-stage, name-as-monument). **Chosen: split-stage**: half the screen never moves, so the live 3D glass stays pinned while a calm column of steps scrolls beside it. The other two compete with the glass for attention.
 
 ## The idea

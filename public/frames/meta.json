@@ -1,6 +1,7 @@
 {
   "count": 260,
   "bg": "#c9c4bc",
+  "bgBottom": "#c9c6be",
   "ext": "webp",
   "sourceSeconds": 32.5,
   "desktop": {

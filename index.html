@@ -9,16 +9,17 @@
     <link rel="icon" href="data:," />
   </head>
   <body>
-    <div class="page">
-      <div class="stage"><canvas id="stage" role="img" aria-label="A tall glass being filled, step by step, to make an iced matcha latte"></canvas></div>
-      <main class="col">
-        <nav class="nav" aria-label="Main">
-          <a href="#glass">The drink</a><a href="#ice">Steps</a><a href="#final">Letter</a><a class="nav__action" href="#final">Order</a>
-        </nav>
-        <div class="story" id="story"></div>
-        <div class="tail"></div>
-      </main>
-    </div>
+    <canvas id="stage" class="stage" role="img" aria-label="A tall ribbed glass being filled, step by step, to make an iced matcha latte"></canvas>
+    <header class="top">
+      <a class="top__mark" href="#glass">jade hour</a>
+      <nav class="nav" aria-label="Main">
+        <a href="#glass">The drink</a><a href="#ice">Steps</a><a href="#final">Letter</a><a class="nav__action" href="#final">Order</a>
+      </nav>
+    </header>
+    <nav class="index" id="index" aria-label="Steps"></nav>
+    <div class="copy" id="copy"></div>
+    <main class="story" id="story"></main>
+    <div class="tail"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

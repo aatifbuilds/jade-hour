@@ -104,3 +104,9 @@ export function storyRanges(story: Story): { id: string; from: number; to: numbe
 export function storyVideoProgress(p: number, story: Story): number {
   return monotoneCubic([...story.chapters.map((c) => c.scroll), 1], [...story.chapters.map((c) => c.video), 1])(p);
 }
+
+/** Index of the chapter on screen at a scroll progress (the last chapter owns the very end). */
+export function storyChapterAt(p: number, story: Story): number {
+  for (let i = story.chapters.length - 1; i >= 0; i--) if (p >= story.chapters[i].scroll) return i;
+  return 0;
+}
