@@ -15,3 +15,6 @@ Owner: the 3D drink "looks like a kid drew it" next to the reference reel. Live 
 
 ## Full-bleed stage and scroll zoom (7 Nov 2026): DONE
 Frames cut to the safe region; camera maths with views in `story.json`; full-bleed layout with the hero name, a step list and a fixed text layer. 96 tests. NEXT: loading state, reduced-motion still, polish and stress test, then the owner decides about going public.
+
+## Published (7 Nov 2026)
+Public repo `aatifbuilds/jade-hour`; live at https://aatifbuilds.github.io/jade-hour/ (GitHub Pages via Actions, noindex). Footage disclosed as AI-generated on the page and in the README. NEXT: loading state, reduced-motion fallback, polish pass.
