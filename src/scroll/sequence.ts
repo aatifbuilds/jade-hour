@@ -76,3 +76,35 @@ export function cropBox(srcW: number, srcH: number, aspectW: number, aspectH: nu
   const y = evenOffset((srcH - h) * Math.max(0, Math.min(1, cropY)));
   return { x: Math.min(x, srcW - w), y: Math.min(y, srcH - h), w, h };
 }
+
+/** Fractions of a frame (0..1): the region to keep. */
+export interface Region {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
+ * The part of the frame that is safe to show: a box centred on the subject that leaves out the edges where an AI video tool puts its
+ * watermark and where stray things (a hand, a spoon handle) enter. Sizes and positions are even, as video codecs need.
+ */
+export function safeBox(srcW: number, srcH: number, r: Region): Rect {
+  const x = evenOffset(srcW * r.left);
+  const y = evenOffset(srcH * r.top);
+  const w = even(srcW * r.right - x);
+  const h = even(srcH * r.bottom - y);
+  return { x, y, w: Math.min(w, even(srcW - x)), h: Math.min(h, even(srcH - y)) };
+}
+
+/** The biggest box of aspect aspectW:aspectH that fits inside `box`, centred in it (for the narrower phone cut). */
+export function centerBox(box: Rect, aspectW: number, aspectH: number): Rect {
+  const target = aspectW / aspectH;
+  let w = box.w;
+  let h = box.h;
+  if (box.w / box.h > target) w = even(box.h * target);
+  else h = even(box.w / target);
+  w = Math.min(w, box.w);
+  h = Math.min(h, box.h);
+  return { x: box.x + evenOffset((box.w - w) / 2), y: box.y + evenOffset((box.h - h) / 2), w, h };
+}

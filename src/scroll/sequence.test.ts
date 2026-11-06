@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOADED, LOADING, NOT_LOADED, coverRect, cropBox, frameBlend, nearestLoaded, nextToLoad } from "./sequence";
+import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, nearestLoaded, nextToLoad, safeBox } from "./sequence";
 
 describe("frameBlend", () => {
   it("lands exactly on a frame at the ends and at whole positions", () => {
@@ -152,6 +152,59 @@ describe("cropBox", () => {
       expect(r.x + r.w).toBeLessThanOrEqual(w);
       expect(r.y + r.h).toBeLessThanOrEqual(h);
       expect(r.w / r.h).toBeCloseTo(0.8, 1);
+    }
+  });
+});
+
+describe("safeBox", () => {
+  const region = { left: 0.12, top: 0.06, right: 0.88, bottom: 1 };
+
+  it("keeps the middle of the frame and leaves out the watermark corner and the top edge", () => {
+    const b = safeBox(1280, 720, region);
+    expect(b.x).toBeGreaterThanOrEqual(0.12 * 1280 - 2);
+    expect(b.x + b.w).toBeLessThanOrEqual(0.88 * 1280 + 2);
+    expect(b.y).toBeGreaterThanOrEqual(0.06 * 720 - 2);
+    expect(b.y + b.h).toBeLessThanOrEqual(720);
+    // the sparkle mark sits at about x 88-97%, y 77-97%: none of it is inside the box
+    expect(b.x + b.w).toBeLessThan(0.88 * 1280 + 3);
+  });
+
+  it("is symmetric about the middle for a symmetric region, so the glass stays centred", () => {
+    const b = safeBox(1280, 720, region);
+    expect(b.x + b.w / 2).toBeCloseTo(640, -1);
+  });
+
+  it("gives even sizes inside the frame", () => {
+    for (const [w, h] of [[1280, 720], [1281, 721], [1920, 1080], [3840, 2160]]) {
+      const b = safeBox(w, h, region);
+      expect(b.w % 2).toBe(0);
+      expect(b.h % 2).toBe(0);
+      expect(b.x % 2).toBe(0);
+      expect(b.y % 2).toBe(0);
+      expect(b.x + b.w).toBeLessThanOrEqual(w);
+      expect(b.y + b.h).toBeLessThanOrEqual(h);
+    }
+  });
+});
+
+describe("centerBox", () => {
+  it("cuts the biggest 3:4 box out of a wider one, centred", () => {
+    const safe = { x: 154, y: 44, w: 972, h: 676 };
+    const p = centerBox(safe, 3, 4);
+    expect(p.h).toBe(676);
+    expect(p.w).toBe(506);
+    expect(p.x + p.w / 2).toBeCloseTo(safe.x + safe.w / 2, -1);
+    expect(p.y).toBe(44);
+  });
+
+  it("stays inside the box and keeps its shape for any box", () => {
+    for (const box of [{ x: 0, y: 0, w: 500, h: 1000 }, { x: 10, y: 20, w: 800, h: 600 }, { x: 0, y: 0, w: 600, h: 800 }]) {
+      const p = centerBox(box, 3, 4);
+      expect(p.x).toBeGreaterThanOrEqual(box.x);
+      expect(p.y).toBeGreaterThanOrEqual(box.y);
+      expect(p.x + p.w).toBeLessThanOrEqual(box.x + box.w);
+      expect(p.y + p.h).toBeLessThanOrEqual(box.y + box.h);
+      expect(p.w / p.h).toBeCloseTo(0.75, 1);
     }
   });
 });
