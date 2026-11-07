@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, dissolveAlpha, edgeAlpha, framesToEvict, nearestLoaded, nextToLoad, safeBox, shouldDissolve } from "./sequence";
+import { LOADED, LOADING, NOT_LOADED, centerBox, coverRect, cropBox, frameBlend, dissolveAlpha, edgeAlpha, framesToEvict, nearestLoaded, nextToDecode, nextToLoad, safeBox, shouldDissolve } from "./sequence";
 
 describe("frameBlend", () => {
   it("lands exactly on a frame at the ends and at whole positions", () => {
@@ -301,5 +301,43 @@ describe("dissolveAlpha", () => {
       last = a;
     }
     expect(dissolveAlpha(5, 0)).toBe(1);
+  });
+});
+
+describe("nextToDecode", () => {
+  const none = (n: number): number[] => new Array<number>(n).fill(NOT_LOADED);
+  const bytes = (n: number, have: number[]): boolean[] => Array.from({ length: n }, (_, i) => have.includes(i));
+
+  it("only picks frames whose bytes have arrived, nearest first (the one ahead on a tie)", () => {
+    const b = bytes(20, [3, 4, 9, 10, 11, 18]);
+    const st = none(20);
+    const order: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const k = nextToDecode(10, st, b);
+      order.push(k);
+      st[k] = LOADED;
+    }
+    expect(order).toEqual([10, 11, 9, 4, 3, 18]);
+    expect(nextToDecode(10, st, b)).toBe(-1); // everything with bytes is decoded
+  });
+
+  it("skips frames already decoded or being decoded, and ones with no bytes yet", () => {
+    const b = bytes(10, [4, 5, 6]);
+    const st = none(10);
+    st[5] = LOADING;
+    st[6] = LOADED;
+    expect(nextToDecode(5, st, b)).toBe(4);
+    expect(nextToDecode(0, none(10), bytes(10, []))).toBe(-1);
+  });
+
+  it("never looks further than the radius", () => {
+    const b = bytes(40, [30]);
+    expect(nextToDecode(10, none(40), b, 5)).toBe(-1);
+    expect(nextToDecode(10, none(40), b, 25)).toBe(30);
+  });
+
+  it("copes with a centre outside the range", () => {
+    expect(nextToDecode(-5, none(10), bytes(10, [0]))).toBe(0);
+    expect(nextToDecode(99, none(10), bytes(10, [9]))).toBe(9);
   });
 });

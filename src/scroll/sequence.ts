@@ -125,6 +125,23 @@ export function edgeAlpha(x: number, y: number, w: number, h: number, feather: n
   return t * t * (3 - 2 * t);
 }
 
+/**
+ * The frame to decode next: the nearest one to `center` (the one ahead wins a tie) that has its bytes in memory (`haveBytes[i]` is truthy)
+ * and is not decoded or being decoded, looking no further than `radius` frames away. -1 when there is nothing to decode in that range.
+ */
+export function nextToDecode(center: number, decodeState: ArrayLike<number>, haveBytes: ArrayLike<unknown>, radius = Infinity): number {
+  const n = decodeState.length;
+  const c = Math.max(0, Math.min(n - 1, Math.round(center)));
+  const reach = Math.min(n - 1, radius);
+  for (let d = 0; d <= reach; d++) {
+    const up = c + d;
+    if (up < n && decodeState[up] === NOT_LOADED && haveBytes[up]) return up;
+    const down = c - d;
+    if (d > 0 && down >= 0 && decodeState[down] === NOT_LOADED && haveBytes[down]) return down;
+  }
+  return -1;
+}
+
 /** Which loaded frames to let go of so that no more than `keep` stay in memory: the ones farthest from `center` (decoded pictures are big). */
 export function framesToEvict(center: number, state: ArrayLike<number>, keep: number): number[] {
   const loaded: number[] = [];

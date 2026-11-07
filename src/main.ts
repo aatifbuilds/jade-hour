@@ -66,6 +66,8 @@ interface Drawer {
   draw(scrollProgress: number, timeSec: number, fx?: DrawFx): void;
   snapshot?(): void; // freeze the picture on screen (video only)
   isReady?(scrollProgress: number): boolean; // are the frames for this position loaded? (video only)
+  stats?(): { renders: number; stale: number; decoded: number; fetched: number }; // dev measuring (video only)
+  resetStats?(): void;
 }
 function makeDrawer(): Drawer {
   if (seqMeta) {
@@ -73,7 +75,7 @@ function makeDrawer(): Drawer {
     // the whole page takes the video's backdrop colour: no box, no seam (on a phone, the colour along the picture's bottom edge, which the text area continues)
     document.documentElement.style.setProperty("--bg", phone && seqMeta.bgBottom ? seqMeta.bgBottom : seqMeta.bg);
     const seq = createSequence(canvas, seqMeta, base, phone ? 0.9 : 0, phone ? 0.05 : 0); // on a phone the glass never gets smaller than a screen's worth
-    return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p, _t, fx) => seq.render(storyVideoProgress(p, story), fx?.view ?? storyView(p, story), fx?.dissolve), snapshot: () => seq.snapshot(), isReady: (p) => seq.isReady(storyVideoProgress(p, story)) };
+    return { resize: seq.resize, setPixelRatioCap: seq.setPixelRatioCap, maxPixelRatio: seq.maxPixelRatio, draw: (p, _t, fx) => seq.render(storyVideoProgress(p, story), fx?.view ?? storyView(p, story), fx?.dissolve), snapshot: () => seq.snapshot(), isReady: (p) => seq.isReady(storyVideoProgress(p, story)), stats: () => seq.stats(), resetStats: () => seq.resetStats() };
   }
   const stage = createStage(canvas);
   return { resize: stage.resize, setPixelRatioCap: stage.setPixelRatioCap, maxPixelRatio: stage.maxPixelRatio, draw: (p, t) => stage.render(drinkAt(p), t) };
@@ -157,7 +159,8 @@ function frame(now: number): void {
   last = now;
   const raw = rawProgress();
   spring = dissolve ? { x: raw, v: 0 } : stepSpring(spring, raw, springOmega(now, glideUntil), dt);
-  if (++frames % 30 === 0) {
+  // the adaptive resolution is for the heavy 3D drink only: drawing the video is nearly free, and changing the canvas size makes the picture pop
+  if (!seqMeta && ++frames % 30 === 0) {
     const next = adaptQuality(quality, frameMs, drawer.maxPixelRatio);
     if (next.cap !== quality.cap) drawer.setPixelRatioCap(next.cap);
     quality = next;
@@ -196,6 +199,8 @@ if (import.meta.env.DEV) {
       get activeIndex() { return activeIdx; },
       get gliding() { return performance.now() < glideUntil; },
       get view() { return currentView; },
+      get stats() { return drawer.stats?.(); },
+      resetStats() { drawer.resetStats?.(); },
       get dissolving() { return dissolve !== null; },
       get activeStep() { return story.chapters[activeIdx]?.id; },
       get frameMs() { return frameMs; },

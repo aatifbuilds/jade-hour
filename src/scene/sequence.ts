@@ -1,5 +1,5 @@
 import { type Placement, type View, cameraPlacement } from "../scroll/camera";
-import { LOADED, LOADING, NOT_LOADED, frameBlend, framesToEvict, nearestLoaded, nextToLoad } from "../scroll/sequence";
+import { LOADED, LOADING, NOT_LOADED, frameBlend, framesToEvict, nearestLoaded, nextToDecode, nextToLoad } from "../scroll/sequence";
 
 export interface SequenceMeta {
   count: number;
@@ -27,12 +27,16 @@ export interface Sequence {
   snapshot(): void;
   /** Are the frames around this position decoded (so a dissolve to it will not show a stale picture)? */
   isReady(videoProgress: number): boolean;
+  /** Dev measuring: how many pictures were drawn, and how many used an older frame because the right one was not ready yet. */
+  stats(): { renders: number; stale: number; decoded: number; fetched: number };
+  resetStats(): void;
   loadedCount(): number;
   dispose(): void;
 }
 
 const FAILED = 3; // a frame that would not load; skipped so we never retry it forever
-const PARALLEL = 4;
+const PARALLEL_FETCH = 10; // GitHub Pages serves over HTTP/2, so many small requests run side by side
+const PARALLEL_DECODE = 3;
 const WINDOW = 30; // frames are fetched this far either side of the visitor; decoded pictures are big, so only this many stay in memory
 const MAX_MAGNIFY = 2.6; // screen pixels per picture pixel: beyond this a 720p source looks too soft
 
@@ -66,21 +70,29 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
   const maxPixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   let cap = maxPixelRatio;
   let center = 0;
-  let inflight = 0;
   let loaded = 0;
   let disposed = false;
   let dirty = true;
   let lastKey = "";
+  let renders = 0;
+  let stale = 0;
 
-  const pump = (): void => {
-    while (!disposed && inflight < PARALLEL) {
-      const i = nextToLoad(center, state, WINDOW);
+  // Loading is two steps, so the network is never in the way of scrolling. FETCH (background, network): every frame is fetched once, the
+  // ones nearest the visitor first, and its compressed bytes are kept (3 to 4 MB in all). DECODE (local, about 2 ms a frame): the frames
+  // within the window around the visitor are decoded from those bytes, so keeping up with even a hard fling needs no network at all.
+  const fetchState = new Uint8Array(meta.count).fill(NOT_LOADED);
+  const blobs: (Blob | undefined)[] = new Array<Blob | undefined>(meta.count);
+  let fetchInflight = 0;
+  let decodeInflight = 0;
+  let fetched = 0;
+
+  const pumpDecode = (): void => {
+    while (!disposed && decodeInflight < PARALLEL_DECODE) {
+      const i = nextToDecode(center, state, blobs, WINDOW);
       if (i < 0) return;
       state[i] = LOADING;
-      inflight++;
-      fetch(url(i))
-        .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`frame ${i + 1}: ${r.status}`))))
-        .then((b) => createImageBitmap(b))
+      decodeInflight++;
+      createImageBitmap(blobs[i] as Blob)
         .then((bmp) => {
           if (disposed) return bmp.close();
           bitmaps[i] = bmp;
@@ -89,7 +101,7 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
           for (const j of framesToEvict(center, state, 2 * WINDOW + 1)) {
             bitmaps[j]?.close();
             bitmaps[j] = undefined;
-            state[j] = NOT_LOADED;
+            state[j] = NOT_LOADED; // its bytes are kept, so it can be decoded again if the visitor comes back
             loaded--;
           }
           dirty = true; // a better picture may be available for what is on screen
@@ -98,10 +110,38 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
           state[i] = FAILED;
         })
         .finally(() => {
-          inflight--;
-          pump();
+          decodeInflight--;
+          pumpDecode();
         });
     }
+  };
+
+  const pumpFetch = (): void => {
+    while (!disposed && fetchInflight < PARALLEL_FETCH) {
+      const i = nextToLoad(center, fetchState);
+      if (i < 0) return;
+      fetchState[i] = LOADING;
+      fetchInflight++;
+      fetch(url(i))
+        .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`frame ${i + 1}: ${r.status}`))))
+        .then((b) => {
+          blobs[i] = b;
+          fetchState[i] = LOADED;
+          fetched++;
+          pumpDecode();
+        })
+        .catch(() => {
+          fetchState[i] = FAILED;
+        })
+        .finally(() => {
+          fetchInflight--;
+          pumpFetch();
+        });
+    }
+  };
+  const pump = (): void => {
+    pumpFetch();
+    pumpDecode();
   };
 
   const resize = (): void => {
@@ -227,11 +267,19 @@ export function createSequence(canvas: HTMLCanvasElement, meta: SequenceMeta, ba
       }
       const ch = frameChoice(p);
       if (!ch) return;
+      const want = frameBlend(p, meta.count);
+      renders++;
+      if (ch.a !== want.a || (ch.t > 0 && ch.b !== want.b)) stale++; // the right frame was not ready: an older one is on screen
       const key = `${ch.a}|${ch.b}|${ch.t}|${view.zoom.toFixed(3)}|${view.x.toFixed(3)}|${view.y.toFixed(3)}|${(topOf(view) ?? -1).toFixed(3)}|${canvas.width}x${canvas.height}`;
       if (!dirty && key === lastKey) return;
       dirty = false;
       lastKey = key;
       paintPicture(ctx, p, view);
+    },
+    stats: () => ({ renders, stale, decoded: loaded, fetched }),
+    resetStats() {
+      renders = 0;
+      stale = 0;
     },
     loadedCount: () => loaded,
     dispose() {
